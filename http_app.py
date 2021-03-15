@@ -12,7 +12,7 @@ import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
 import time
 import subprocess
-import os, sys, shutil
+import os, sys, shutil, platform
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import http_adn as sh_adn
@@ -136,3 +136,13 @@ def git_clone(mission_name, directory_name, repository_url):
         print("Error: ", sys.exc_info()[0])
 
 
+def git_pull(mission_name, directory_name):
+    try:
+        if platform.system() == 'Windows':
+            cmd = 'git'
+        else:
+            cmd = 'git'
+
+        gitPull =
+    except:
+        print('error')
