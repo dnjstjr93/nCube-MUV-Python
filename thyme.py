@@ -11,3 +11,6 @@ conf = conf
 sh_state = 'rtvct'
 mqtt_client = None
 muv_mqtt_client = None
+
+if __name__ == '__main__':
+    http_app.http_watchdog()

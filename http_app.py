@@ -20,6 +20,7 @@ import noti
 import thyme_tas_mav as tas_mav
 
 from conf import conf
+from thyme import sh_state
 
 HTTP_SUBSCRIPTION_ENABLE = 0
 MQTT_SUBSCRIPTION_ENABLE = 0
@@ -122,14 +123,15 @@ def git_clone(mission_name, directory_name, repository_url):
     except (FileNotFoundError, OSError) as e:
         print(e)
 
-    gitClone = subprocess.Popen(["git", "clone", repository_url, directory_name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    gitClone = subprocess.Popen(['git', 'clone', repository_url, directory_name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     try:
         stdout, stderr = gitClone.communicate()
-        retcode = gitClone.poll()
+        retcode = gitClone.returncode
         if retcode == 0:
             print('stdout: {}'.format(stdout))
-            # requireMsw()
+            print('cloning finish...')
+            requireMsw(mission_name, directory_name)
         else:
             print('stderr: {}'.format(stdout))
     except:
@@ -143,6 +145,144 @@ def git_pull(mission_name, directory_name):
         else:
             cmd = 'git'
 
-        gitPull =
+        gitPull = subprocess.Popen([cmd, 'pull'], stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+
+        (stdout, stderr) = gitPull.communicate()
+
+        retcode = gitPull.returncode
+        if retcode == 0:
+            print('stdout: {}'.format(stdout))
+            requireMsw(mission_name, directory_name)
+        else:
+            print('stderr: {}'.format(stdout))
+
     except:
         print('error')
+
+
+def npm_install(mission_name, directory_name):
+    try:
+        if platform.system() == 'Windows':
+            cmd = 'npm.cmd'
+        else:
+            cmd = 'npm'
+
+        npmInstall = subprocess.Popen([cmd, 'install'], stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+
+        (stdout, stderr) = npmInstall.communicate()
+
+        retcode = npmInstall.returncode
+        if retcode == 0:
+            print('stdout: {}'.format(stdout))
+            fork_msw(mission_name, directory_name)
+        else:
+            print('stderr: {}'.format(stdout))
+            npm_install(mission_name, directory_name)
+
+    except:
+        print('error')
+
+# npm_install('msw_timesync', 'msw_timesync_msw_timesync')
+
+def fork_msw(mission_name, directory_name):
+    executable_name = directory_name.replace(mission_name + '_', '')
+
+    nodeMsw = subprocess.Popen(['node', executable_name], stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+
+    (stdout, stderr) = nodeMsw.communicate()
+
+    retcode = nodeMsw.returncode
+    if retcode == 0:
+        print('stdout: {}'.format(stdout))
+
+    else:
+        print('stderr: {}'.format(stdout))
+        npm_install(mission_name, directory_name)
+
+# fork_msw('msw_timesync', 'msw_timesync_msw_timesync')
+
+msw_directory = {}
+def requireMsw(mission_name, directory_name):
+    global msw_directory
+    require_msw_name = directory_name.replace(mission_name + '_', '')
+    msw_directory[require_msw_name] = directory_name
+
+    msw_package = './' + directory_name + '/' + require_msw_name
+    # import msw_package
+
+
+def ae_response_action(status, res_body, callback):
+    aeid = res_body['m2m:ae']['aei']
+    conf.ae.id = aeid
+    callback(status, aeid)
+
+
+drone_info = {}
+mission_parent = []
+def retrieve_my_cnt_name(callback):
+    global sh_state
+    print('[sh_state] : {}'.format(sh_state))
+    sh_state = 'crtae'
+    http_watchdog()
+
+def http_watchdog():
+    global sh_state
+
+    if sh_state == 'rtvct':
+        retrieve_my_cnt_name(1)
+    elif sh_state == 'crtae':
+        print('[sh_state] : {}'.format(sh_state))
+        sh_state = 'rtvae'
+        http_watchdog()
+    elif sh_state == 'rtvae':
+        print('[sh_state] : {}'.format(sh_state))
+        sh_state = 'crtct'
+        http_watchdog()
+    elif sh_state == 'crtct':
+        print('[sh_state] : {}'.format(sh_state))
+        sh_state = 'delsub'
+        http_watchdog()
+    elif sh_state == 'delsub':
+        print('[sh_state] : {}'.format(sh_state))
+        sh_state = 'crtsub'
+        http_watchdog()
+    elif sh_state == 'crtsub':
+        print('[sh_state] : {}'.format(sh_state))
+        sh_state = 'crtci'
+        http_watchdog()
+    elif sh_state == 'crtci':
+        print('[sh_state] : {}'.format(sh_state))
+
+
+from thyme import mqtt_client
+def mqtt_connect(serverip, sub_gcs_topic, noti_topic):
+    if mqtt_client is None:
+        if conf['usesecure'] == 'disable':
+            connectOptions = {}
+            connectOptions['host'] = serverip,
+            connectOptions['port'] = conf.cse.mqttport,
+            connectOptions['protocol'] = "mqtt",
+            connectOptions['keepalive'] = 10,
+            connectOptions['protocolId'] = "MQTT",
+            connectOptions['protocolVersion'] = 4,
+            connectOptions['clean'] = True,
+            connectOptions['reconnectPeriod'] = 2000,
+            connectOptions['connectTimeout'] = 2000,
+            connectOptions['rejectUnauthorized'] = False
+        else:
+            connectOptions = {}
+            connectOptions['host'] = serverip,
+            connectOptions['port'] = conf.cse.mqttport,
+            connectOptions['protocol'] = "mqtts",
+            connectOptions['keepalive'] = 10,
+            connectOptions['protocolId'] = "MQTT",
+            connectOptions['protocolVersion'] = 4,
+            connectOptions['clean'] = True,
+            connectOptions['reconnectPeriod'] = 2000,
+            connectOptions['connectTimeout'] = 2000,
+            connectOptions['key'] = fs.readFileSync("./server-key.pem"),
+            connectOptions['cert'] = fs.readFileSync("./server-crt.pem"),
+            connectOptions['rejectUnauthorized'] = False
