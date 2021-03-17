@@ -5,14 +5,13 @@
 """
 
 import http
-import socket
 import json
 import uuid
 import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
-import time
+import ssl
 import subprocess
-import os, sys, shutil, platform
+import os, sys, shutil, platform, socket, random
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import http_adn as sh_adn
@@ -88,13 +87,16 @@ for i in range(0, len(conf['sub'])):
             MQTT_SUBSCRIPTION_ENABLE = 1
         else:
             print('notification uri of subscription is not supported')
-            #process.exit()
+
 
 return_count = 0
 request_count = 0
 
 
 def ready_for_notification():
+    global noti_topic
+    global mqtt_client
+
     if HTTP_SUBSCRIPTION_ENABLE == 1:
         server = HTTPServer(('0.0.0.0', int(conf['ae']['port'])), BaseHTTPRequestHandler)
         print('http_server running at {} port'.format(conf['ae']['port']))
@@ -112,8 +114,8 @@ def ready_for_notification():
                     else:
                         noti_topic = '{}'.format(urlparse(conf['sub'][i]['nu']).path)
 
-        # mqtt_connect(conf['cse']['host'], muv_sub_gcs_topic, noti_topic)
-        #
+        mqtt_connect(conf['cse']['host'], muv_sub_gcs_topic, noti_topic)
+
         # muv_mqtt_connect('localhost', 1883, muv_sub_msw_topic)
 
 
@@ -257,32 +259,117 @@ def http_watchdog():
         print('[sh_state] : {}'.format(sh_state))
 
 
+def on_connect(client,userdata,flags, rc):
+    print("Connected with result code" + str(rc))
+
+def on_disconnect(client, userdata, flags, rc=0):
+    print(str(rc))
+
+
+def on_subscribe(client, userdata, mid, granted_qos):
+    print("subscribed: " + str(mid) + " " + str(granted_qos))
+
+
+def on_message(client, userdata, msg):
+    message = str(msg.payload.decode("utf-8"))
+    if (msg.topic == muv_sub_gcs_topic):
+        tas_mav.gcs_noti_handler(message)
+
+    else:
+        if (msg.topic.includes('/oneM2M/req/')):
+            jsonObj = json.dumps(message)
+
+            if (jsonObj['m2m:rqp'] is None):
+                jsonObj['m2m:rqp'] = jsonObj
+
+            noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
+
+    try:
+        msg_obj = json.dumps(message)
+        send_to_Mobius((msg.topic), msg_obj, int(random.random() * 10))
+        # print(topic + ' - ' + JSON.stringify(msg_obj))
+
+    except:
+        msg_obj = message
+        send_to_Mobius((msg.topic), msg_obj, int(random.random() * 10))
+        # print(topic + ' - ' + msg_obj)
+
 from thyme import mqtt_client
 def mqtt_connect(serverip, sub_gcs_topic, noti_topic):
+    global mqtt_client
+
     if mqtt_client is None:
+        print('mqtt_client is None')
         if conf['usesecure'] == 'disable':
-            connectOptions = {}
-            connectOptions['host'] = serverip,
-            connectOptions['port'] = conf.cse.mqttport,
-            connectOptions['protocol'] = "mqtt",
-            connectOptions['keepalive'] = 10,
-            connectOptions['protocolId'] = "MQTT",
-            connectOptions['protocolVersion'] = 4,
-            connectOptions['clean'] = True,
-            connectOptions['reconnectPeriod'] = 2000,
-            connectOptions['connectTimeout'] = 2000,
-            connectOptions['rejectUnauthorized'] = False
+            mqtt_client = mqtt.Client()
+            mqtt_client.on_connect = on_connect
+            mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
+            mqtt_client.on_disconnect = on_disconnect
+            mqtt_client.on_subscribe = on_subscribe
+            mqtt_client.on_message = on_message
+            print('fc_mqtt is connected')
+            if (sub_gcs_topic is not ''):
+                print(sub_gcs_topic)
+                mqtt_client.subscribe(sub_gcs_topic, 0)
+                print('[mqtt_connect] sub_gcs_topic is subscribed: ' + sub_gcs_topic)
+
+            if (noti_topic is not ''):
+                mqtt_client.subscribe(noti_topic, 0)
+                print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
+            mqtt_client.connect(serverip, int(conf['cse']['mqttport']), keepalive=10)
+            mqtt_client.loop_start()
+
         else:
-            connectOptions = {}
-            connectOptions['host'] = serverip,
-            connectOptions['port'] = conf.cse.mqttport,
-            connectOptions['protocol'] = "mqtts",
-            connectOptions['keepalive'] = 10,
-            connectOptions['protocolId'] = "MQTT",
-            connectOptions['protocolVersion'] = 4,
-            connectOptions['clean'] = True,
-            connectOptions['reconnectPeriod'] = 2000,
-            connectOptions['connectTimeout'] = 2000,
-            connectOptions['key'] = fs.readFileSync("./server-key.pem"),
-            connectOptions['cert'] = fs.readFileSync("./server-crt.pem"),
-            connectOptions['rejectUnauthorized'] = False
+            """TBD mqtt secure"""
+            # mqtt_client = mqtt.Client()
+            # mqtt_client.on_connect = on_connect
+            # mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
+            # mqtt_client.on_disconnect = on_disconnect
+            # mqtt_client.on_subscribe = on_subscribe
+            # mqtt_client.on_message = on_message
+            # print('fc_mqtt is connected')
+            # if (sub_gcs_topic is not ''):
+            #     print(sub_gcs_topic)
+            #     mqtt_client.subscribe(sub_gcs_topic, 0)
+            #     print('[mqtt_connect] sub_gcs_topic is subscribed: ' + sub_gcs_topic)
+            #
+            # if (noti_topic is not ''):
+            #     mqtt_client.subscribe(noti_topic, 0)
+            #     print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
+            # mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
+            # mqtt_client.connect(serverip, int(conf['cse']['mqttport']), keepalive=10)
+            # mqtt_client.loop_start()
+            # print(mqtt_client)
+
+
+from thyme import muv_mqtt_client
+def muv_mqtt_connect(broker_ip, port, noti_topic):
+    global muv_mqtt_client
+    print(muv_mqtt_client)
+    if muv_mqtt_client is None:
+        if conf['usesecure'] == 'disable':
+            mqtt_client = mqtt.Client()
+            mqtt_client.on_connect = on_connect
+            mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
+            mqtt_client.on_disconnect = on_disconnect
+            mqtt_client.on_subscribe = on_subscribe
+            mqtt_client.on_message = on_message
+            print('muv_mqtt connected to ' + broker_ip)
+            for i in range(len(noti_topic)):
+                muv_mqtt_client.subscribe(noti_topic[i])
+                print('[muv_mqtt_connect] noti_topic[' + i + ']: ' + noti_topic[i])
+            mqtt_client.connect(broker_ip, port, keepalive=10)
+            mqtt_client.loop_start()
+
+        else:
+            """TBD mqtt secure"""
+
+
+def send_to_Mobius(topic, content_each_obj, gap):
+    print('send_to_Mobius')
+#     setTimeout(function (topic, content_each_obj):
+#         sh_adn.crtci(topic+'?rcn=0', 0, content_each_obj, null, function ():
+#         });
+#     }, gap, topic, content_each_obj);
+# }
+muv_mqtt_connect('localhost', 1883, noti_topic)
