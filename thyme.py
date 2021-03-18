@@ -13,4 +13,5 @@ mqtt_client = None
 muv_mqtt_client = None
 
 if __name__ == '__main__':
-    http_app.http_watchdog()
+    while True:
+        http_app.http_watchdog()
