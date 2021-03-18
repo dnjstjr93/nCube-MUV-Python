@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
 import ssl
 import subprocess
-import os, sys, shutil, platform, socket, random
+import os, sys, shutil, platform, socket, random, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import noti
@@ -122,7 +122,6 @@ def ready_for_notification():
 
 
 def git_clone(mission_name, directory_name, repository_url):
-    print("Start git_clone")
     try:
         shutil.rmtree('./{}'.format(directory_name))
     except Exception as e:
@@ -144,7 +143,6 @@ def git_clone(mission_name, directory_name, repository_url):
 
 
 def git_pull(mission_name, directory_name):
-    print("Start git_pull")
     try:
         if platform.system() == 'Windows':
             cmd = 'git'
@@ -193,10 +191,9 @@ def npm_install(mission_name, directory_name):
 
 
 def fork_msw(mission_name, directory_name):
-    print("Start fork_msw")
     executable_name = directory_name.replace(mission_name + '_', '')
 
-    nodeMsw = subprocess.Popen(['node', executable_name], stdout=subprocess.PIPE,
+    nodeMsw = subprocess.Popen(['node', executable_name], stdin=my_sortie_name, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
     (stdout, stderr) = nodeMsw.communicate()
@@ -208,26 +205,12 @@ def fork_msw(mission_name, directory_name):
     else:
         print('stderr: {}'.format(stdout))
         npm_install(mission_name, directory_name)
-    # executable_name = directory_name.replace(mission_name + '_', '')
-    #
-    # nodeMsw = subprocess.Popen(['node', executable_name], stdout=subprocess.PIPE,
-    #                               stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
-    #
-    # (stdout, stderr) = nodeMsw.communicate()
-    #
-    # retcode = nodeMsw.returncode
-    # if retcode == 0:
-    #     print('stdout: {}'.format(stdout))
-    #
-    # else:
-    #     print('stderr: {}'.format(stdout))
-    #     npm_install(mission_name, directory_name)
 
 
 msw_directory = {}
-def requireMsw(mission_name, directory_name):
-    print("Start requireMsw")
 
+
+def requireMsw(mission_name, directory_name):
     global msw_package
     global msw_directory
 
@@ -235,12 +218,12 @@ def requireMsw(mission_name, directory_name):
     msw_directory[require_msw_name] = directory_name
 
     msw_package = './' + directory_name + '/' + require_msw_name
-    npm_install(mission_name, directory_name)
 
 
 def ae_response_action(status, res_body):
     aeid = res_body['m2m:ae']['aei']
     conf['ae']['id'] = aeid
+
     return status, aeid
 
 
@@ -314,6 +297,7 @@ def retrieve_my_cnt_name():
     global muv_pub_fc_gpi_topic
     global muv_pub_fc_hb_topic
     global muv_sub_msw_topic
+    global my_drone_type
 
     res, res_body, count = rtvct('/Mobius/'+conf['ae']['approval_gcs']+'/approval/'+conf['ae']['name']+'/la', 0)
     if res == 2000:
@@ -456,8 +440,10 @@ def retrieve_my_cnt_name():
         sh_state = 'crtae'
         http_watchdog()
     else:
-        print('x-m2m-rsc : ' + str(res) + ' <----' + res_body)
+        print('x-m2m-rsc : ' + str(res) + ' <----' + str(res_body))
+        time.sleep(0.25)
         http_watchdog()
+
 
 def http_watchdog():
     global sh_state
@@ -552,7 +538,7 @@ def http_watchdog():
 
                 ready_for_notification()
 
-                # tas_mav.ready()
+                tas_mav.tas_ready(my_drone_type)
 
                 http_watchdog()
     elif sh_state == 'crtci':
