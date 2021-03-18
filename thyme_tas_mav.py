@@ -369,7 +369,19 @@ for n in range(0xff+0x01):
 
 
 def hex(arrayBuffer):
-    buff =
+    buff = bytearray(8)
+    for i in range(8):
+        buff[i] = arrayBuffer ######
+    hexOctet = []
+
+    for i in range(len(buff)):
+        hexOctet.append(byteToHex[buff[i]])
+
+    return "".join(hexOctet)
+
+
+mavStrFromDrone = ''
+mavStrFromDroneLength = 0
 
 
 def mavPortData():
