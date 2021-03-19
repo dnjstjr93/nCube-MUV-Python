@@ -577,7 +577,7 @@ def fc_on_message(client, userdata, msg):
     print(message)
 
     if msg.topic == muv_sub_gcs_topic:
-        tas_mav.gcs_noti_handler(message)
+        tas_mav.gcs_noti_handler(message, my_drone_type)
 
     else:
         if msg.topic.includes('/oneM2M/req/'):

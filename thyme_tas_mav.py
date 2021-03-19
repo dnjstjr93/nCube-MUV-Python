@@ -8,10 +8,9 @@ import socket, serial
 import datetime, os
 import serial, json
 from pymavlink import mavutil
+import subprocess
 
 from http_adn import *
-
-from http_app import my_drone_type
 
 _server = None
 
@@ -36,7 +35,10 @@ def tas_ready(my_drone_type):
             # _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # print('socket connected')
     elif my_drone_type == 'pixhawk':
-        mavPortNum = '/dev/AMA0'
+        # from test import serial_ports
+        # _port = serial_ports()
+        # mavPortNum = _port[0]
+        # mavPortNum = '/dev/AMA0'
         mavBaudrate = '57600'
         mavPortOpening()
 
@@ -288,7 +290,7 @@ def noti(path_arr, cinObj, socket):
         socket.write(json.dumps(cin))
 
 
-def gcs_noti_handler(message):
+def gcs_noti_handler(message, my_drone_type):
     global socket_mav
     global mavPort
 
@@ -342,7 +344,8 @@ def mavPortOpen():
     global mavPort
 
     print('mavPort open. ' + mavPortNum + ' Data rate: ' + mavBaudrate)
-
+    mavData = subprocess.Popen(['node', executable_name], stdin=my_sortie_name, stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
 def mavPortClose():
     global mavPort
