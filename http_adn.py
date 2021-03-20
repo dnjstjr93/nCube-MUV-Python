@@ -7,11 +7,12 @@
 import http.client as request
 import uuid, json
 
-from conf import conf
+import conf
+
 
 def http_request(origin, path, method, ty, bodyString):
     headers= {
-        'Accept' : 'application/' + conf['ae']['bodytype'],
+        'Accept' : 'application/' + conf.conf['ae']['bodytype'],
         'X-M2M-RI' : str(uuid.uuid1()),
         'X-M2M-Origin' : origin,
         'Locale' : 'en'
@@ -25,18 +26,18 @@ def http_request(origin, path, method, ty, bodyString):
             a = ''
         else:
             a = '; ty={}'.format(ty)
-        headers['Content-Type'] = 'application/vnd.onem2m-res+' + conf['ae']['bodytype'] + a
+        headers['Content-Type'] = 'application/vnd.onem2m-res+' + conf.conf['ae']['bodytype'] + a
     elif method == 'PUT':
-        headers['Content-Type'] = 'application/vnd.onem2m-res+' + conf['ae']['bodytype']
+        headers['Content-Type'] = 'application/vnd.onem2m-res+' + conf.conf['ae']['bodytype']
 
     try:
-        if conf['usesecure'] == 'enable':
+        if conf.conf['usesecure'] == 'enable':
             ca = open('./ca-crt.pem')
             rejectUnauthorized = False
 
-            http = request.HTTPSConnection(conf['cse']['host'], conf['cse']['port'])
+            http = request.HTTPSConnection(conf.conf['cse']['host'], conf.conf['cse']['port'])
         else:
-            http = request.HTTPConnection(conf['cse']['host'], conf['cse']['port'])
+            http = request.HTTPConnection(conf.conf['cse']['host'], conf.conf['cse']['port'])
     except Exception as e:
         print('problem with request')
 
@@ -49,9 +50,9 @@ def http_request(origin, path, method, ty, bodyString):
     response = http.getresponse()
     res_status = response.getheader('x-m2m-rsc')
     res_body = (response.read()).decode('utf-8')
-    if conf['ae']['bodytype'] == 'xml':
+    if conf.conf['ae']['bodytype'] == 'xml':
         pass
-    elif conf['ae']['bodytype'] == 'cbor':
+    elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
         try:
@@ -73,9 +74,9 @@ def crtae(parent, rn, api):
 
     bodyString = ''
 
-    if conf['ae']['bodytype'] == 'xml':
+    if conf.conf['ae']['bodytype'] == 'xml':
         pass
-    elif conf['ae']['bodytype'] == 'cbor':
+    elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
         results_ae['m2m:ae'] = {}
@@ -85,13 +86,13 @@ def crtae(parent, rn, api):
 
         bodyString = json.dumps(results_ae)
 
-    rsc, res_body = http_request(conf['ae']['id'], parent, 'POST', '2', bodyString)
+    rsc, res_body = http_request(conf.conf['ae']['id'], parent, 'POST', '2', bodyString)
 
     return rsc, res_body
 
 
 def rtvae(target):
-    rsc, res_body = http_request(conf['ae']['id'], target, 'GET', '', '')
+    rsc, res_body = http_request(conf.conf['ae']['id'], target, 'GET', '', '')
 
     return rsc, res_body
 
@@ -99,16 +100,16 @@ def rtvae(target):
 def udtae(target):
     bodyString = ''
     results_ae = {}
-    if conf['ae']['bodytype'] == 'xml':
+    if conf.conf['ae']['bodytype'] == 'xml':
         pass
-    elif conf['ae']['bodytype'] == 'cbor':
+    elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
         results_ae['m2m:ae'] = {}
         results_ae['m2m:ae']['lbl'] = 'seahorse'
         bodyString = json.dumps(results_ae)
 
-    rsc, res_body = http_request(conf['ae']['id'], target, 'PUT', '', bodyString)
+    rsc, res_body = http_request(conf.conf['ae']['id'], target, 'PUT', '', bodyString)
 
     return rsc, res_body
 
@@ -123,9 +124,9 @@ def crtct(parent, rn, count):
     results_ct = {}
 
     bodyString = ''
-    if conf['ae']['bodytype'] == 'xml':
+    if conf.conf['ae']['bodytype'] == 'xml':
         pass
-    elif conf['ae']['bodytype'] == 'cbor':
+    elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
         results_ct['m2m:cnt'] = {}
@@ -134,7 +135,7 @@ def crtct(parent, rn, count):
         bodyString = json.dumps(results_ct)
         print(bodyString)
 
-    rsc, res_body = http_request(conf['ae']['id'], parent, 'POST', '3', bodyString)
+    rsc, res_body = http_request(conf.conf['ae']['id'], parent, 'POST', '3', bodyString)
     print(str(count) + ' - ' + parent + '/' + rn + ' - x-m2m-rsc : ' + str(rsc) + ' <----')
     print(res_body)
 
@@ -142,7 +143,7 @@ def crtct(parent, rn, count):
 
 
 def rtvct(target, count):
-    rsc, res_body = http_request(conf['ae']['id'], target, 'GET', '', '')
+    rsc, res_body = http_request(conf.conf['ae']['id'], target, 'GET', '', '')
 
     return rsc, res_body, count
 
@@ -150,16 +151,16 @@ def rtvct(target, count):
 def udtct(target, lbl, count):
     bodyString = ''
     results_ct = {}
-    if conf['ae']['bodytype'] == 'xml':
+    if conf.conf['ae']['bodytype'] == 'xml':
         pass
-    elif conf['ae']['bodytype'] == 'cbor':
+    elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
         results_ct['m2m:ae'] = {}
         results_ct['m2m:ae']['lbl'] = lbl
         bodyString = json.dumps(results_ct)
 
-    rsc, res_body = http_request(conf['ae']['id'], target, 'PUT', '', bodyString)
+    rsc, res_body = http_request(conf.conf['ae']['id'], target, 'PUT', '', bodyString)
     print(count + ' - ' + target + ' - x-m2m-rsc : ' + rsc + ' <----')
 
     return rsc, res_body, count
@@ -175,9 +176,9 @@ def delct(target, count):
 def crtsub(parent, rn, nu, count):
     bodyString = ''
     results_ss = {}
-    if conf['ae']['bodytype'] == 'xml':
+    if conf.conf['ae']['bodytype'] == 'xml':
         pass
-    elif conf['ae']['bodytype'] == 'cbor':
+    elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
         results_ss['m2m:ae'] = {}
@@ -188,7 +189,7 @@ def crtsub(parent, rn, nu, count):
         bodyString = json.dumps(results_ss)
         print(bodyString)
 
-    rsc, res_body = http_request(conf.ae.id, parent, 'POST', '23', bodyString)
+    rsc, res_body = http_request(conf.conf.ae.id, parent, 'POST', '23', bodyString)
     print(count + ' - ' + parent + '/' + rn + ' - x-m2m-rsc : ' + rsc + ' <----')
     print(json.dumps(res_body))
 
@@ -206,15 +207,15 @@ def delsub(target, count):
 def crtci(parent, count, content_obj, socket):
     results_ci = {}
     bodyString = ''
-    if conf['ae']['bodytype'] == 'xml':
+    if conf.conf['ae']['bodytype'] == 'xml':
         pass
-    elif conf['ae']['bodytype'] == 'cbor':
+    elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
         results_ci['m2m:cin'] = {}
         results_ci['m2m:cin']['con'] = content_obj
         bodyString = json.dumps(results_ci)
 
-    rsc, res_body = http_request(conf['ae']['id'], parent, 'POST', '4', bodyString)
+    rsc, res_body = http_request(conf.conf['ae']['id'], parent, 'POST', '4', bodyString)
 
     return rsc, res_body, parent, socket

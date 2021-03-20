@@ -4,13 +4,11 @@
  Created by Wonseok Jung in KETI on 2021-03-16.
 """
 
-import socket, serial
-import datetime, os
-import serial, json
-from pymavlink import mavutil
-import subprocess
+import datetime, serial, json, binascii, threading
 
 from http_adn import *
+import http_app
+import thyme
 
 _server = None
 
@@ -23,42 +21,39 @@ mavBaudrate = '57600'
 mavstr = None
 
 
-def tas_ready(my_drone_type):
+def tas_ready():
     global _server
     global mavPortNum
     global mavBaudrate
 
-    if my_drone_type == 'dji':
+    if http_app.my_drone_type == 'dji':
         if _server is None:
             pass
             """TBD socket connect with DJI"""
             # _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # print('socket connected')
-    elif my_drone_type == 'pixhawk':
-        # from test import serial_ports
-        # _port = serial_ports()
-        # mavPortNum = _port[0]
-        # mavPortNum = '/dev/AMA0'
+    elif http_app.my_drone_type == 'pixhawk':
+        mavPortNum = '/dev/tty.usbmodem143201'
         mavBaudrate = '57600'
         mavPortOpening()
 
 
-# aggr_content = {}
-#
-#
-# def send_aggr_to_Mobius(topic, content_each, gap):
-#     if aggr_content.get(topic):
-#         timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
-#         aggr_content[topic][timestamp] = content_each
-#     else:
-#         aggr_content[topic] = {}
-#         timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
-#         aggr_content[topic][timestamp] = content_each
-#
-#         crtci(topic+'?rcn=0', 0, aggr_content[topic], None)
-#         del aggr_content[topic]
-#
-#         # return gap, topic
+aggr_content = {}
+
+
+def send_aggr_to_Mobius(topic, content_each, gap):
+    if aggr_content.get(topic):
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
+        aggr_content[topic][timestamp] = content_each
+    else:
+        aggr_content[topic] = {}
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
+        aggr_content[topic][timestamp] = content_each
+
+        crtci(topic+'?rcn=0', 0, aggr_content[topic], None)
+        del aggr_content[topic]
+
+        return gap, topic
 #
 #
 # function mavlinkGenerateMessage(sysId, type, params) {
@@ -290,11 +285,11 @@ def noti(path_arr, cinObj, socket):
         socket.write(json.dumps(cin))
 
 
-def gcs_noti_handler(message, my_drone_type):
+def gcs_noti_handler(message):
     global socket_mav
     global mavPort
 
-    if my_drone_type == 'dji':
+    if http_app.my_drone_type == 'dji':
         com_msg = str(message)
         com_message = com_msg.split(":")
         msg_command = com_message[0]
@@ -313,7 +308,7 @@ def gcs_noti_handler(message, my_drone_type):
             msg_alt = com_message[3][0:3]
         elif msg_command == 'm' or msg_command == 'a':
             socket_mav.write(message)
-    elif my_drone_type == 'pixhawk':
+    elif http_app.my_drone_type == 'pixhawk':
         if mavPort is not None:
             if mavPort.isOpen():
                 mavPort.write(message)
@@ -326,26 +321,30 @@ def mavPortOpening():
     global mavPortNum
     global mavBaudrate
 
-    try:
-        if mavPort is None:
-            mavPort = serial.Serial(mavPortNum, int(mavBaudrate), timeout=10)
-            mavPortOpen()
+    # try:
+    if mavPort is None:
+        mavPort = serial.Serial(mavPortNum, int(mavBaudrate), timeout=10)
+        mavPortOpen()
+    else:
+        if mavPort.isOpen():
+            pass
         else:
-            if mavPort.isOpen():
-                pass
-            else:
-                mavPort.open()
+            mavPort.open()
 
-    except Exception as e:
-        mavPortError(e)
+    # except Exception as e:
+    #     mavPortError(e)
 
 
 def mavPortOpen():
     global mavPort
 
     print('mavPort open. ' + mavPortNum + ' Data rate: ' + mavBaudrate)
-    mavData = subprocess.Popen(['node', executable_name], stdin=my_sortie_name, stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+    while True:
+        mavPortData()
+    # t1 = threading.Thread(target=mavPortData, )
+    # t1.daemon = True
+    # t1.start()
+
 
 def mavPortClose():
     global mavPort
@@ -371,10 +370,10 @@ for n in range(0xff+0x01):
     byteToHex.append(hexOctet)
 
 
-def hex(arrayBuffer):
-    buff = bytearray(8)
-    for i in range(8):
-        buff[i] = arrayBuffer ######
+def Hex(arrayBuffer):
+    global hexOctet
+
+    buff = bytearray(arrayBuffer)
     hexOctet = []
 
     for i in range(len(buff)):
@@ -389,6 +388,141 @@ mavStrFromDroneLength = 0
 
 def mavPortData():
     global mavPort
+    global mavStrFromDroneLength
+    global mavStrFromDrone
 
-    mavstr = mavPort.readline()
-    print(mavstr)
+    if mavStrFromDroneLength > 0:
+        mavStrFromDrone = mavStrFromDrone[mavStrFromDroneLength:]
+        mavStrFromDroneLength = 0
+
+    data = mavPort.readline()
+
+    mavStrFromDrone += Hex(data)
+    while len(mavStrFromDrone) > 12:
+        stx = mavStrFromDrone[0:2]
+        if stx == 'fe':
+            if stx == 'fe':
+                length = int(mavStrFromDrone[2:4], 16)
+                mavLength = (6 * 2) + (length * 2) + (2 * 2)
+            else:
+                length = int(mavStrFromDrone[2:4], 16)
+                mavLength = (10 * 2) + (length * 2) + (2 * 2)
+
+            if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
+                mavStrFromDroneLength += mavLength
+                mavPacket = mavStrFromDrone[0:mavLength]
+                print(bytearray(bytes(mavPacket, encoding='utf-8')))
+                hex = ":".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2))
+                mavarr = []
+                arr = hex.split(":")
+                for i in arr:
+                    mavarr.append(int("0x" + i, 0))
+                thyme.mqtt_client.publish(http_app.my_cnt_name, bytearray(mavarr))
+                send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
+                # parseMavFromDrone(mavPacket)
+            else:
+                break
+        else:
+            mavStrFromDrone = mavStrFromDrone[2:]
+
+
+fc = {}
+try:
+    with open('./fc_data_model.json', 'r') as f:
+        fc = json.load(f)
+except:
+    fc['heartbeat'] = {}
+    fc['heartbeat']['type'] = 2
+    fc['heartbeat']['autopilot'] = 3
+    fc['heartbeat']['base_mode'] = 0
+    fc['heartbeat']['custom_mode'] = 0
+    fc['heartbeat']['system_status'] = 0
+    fc['heartbeat']['mavlink_version'] = 1
+
+    fc['attitude'] = {}
+    fc['attitude']['time_boot_ms'] = 123456789
+    fc['attitude']['roll'] = 0.0
+    fc['attitude']['pitch'] = 0.0
+    fc['attitude']['yaw'] = 0.0
+    fc['attitude']['rollspeed'] = 0.0
+    fc['attitude']['pitchspeed'] = 0.0
+    fc['attitude']['yawspeed'] = 0.0
+
+    fc['global_position_int'] = {}
+    fc['global_position_int']['time_boot_ms'] = 123456789
+    fc['global_position_int']['lat'] = 0
+    fc['global_position_int']['lon'] = 0
+    fc['global_position_int']['alt'] = 0
+    fc['global_position_int']['vx'] = 0
+    fc['global_position_int']['vy'] = 0
+    fc['global_position_int']['vz'] = 0
+    fc['global_position_int']['hdg'] = 65535
+
+    fc['battery_status'] = {}
+    fc['battery_status']['id'] = 0
+    fc['battery_status']['battery_function'] = 0
+    fc['battery_status']['type'] = 3
+    fc['battery_status']['temperature'] = 32767
+    fc['battery_status']['voltages'] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    fc['battery_status']['current_battery'] = -1
+    fc['battery_status']['current_consumed'] = -1
+    fc['battery_status']['battery_remaining'] = -1
+    fc['battery_status']['time_remaining'] = 0
+    fc['battery_status']['charge_state'] = 0
+
+    with open('./fc_data_model.json', 'w') as f:
+        json.dump(fc, f, indent=4)
+
+
+flag_base_mode = 0
+start_arm_time = 0
+cal_flag = 0
+cal_sortiename = ''
+
+from pymavlinklib import common
+
+def parseMavFromDrone(mavPacket):
+    try:
+        ver = mavPacket[0:2]
+        if ver == 'fd':
+            sysid = mavPacket[10:12].lower()
+            msgid = mavPacket[14:20].lower()
+        else:
+            sysid = mavPacket[6:8].lower()
+            msgid = mavPacket[10:12].lower()
+
+        sys_id = int(sysid, 16)
+        msg_id = int(msgid, 16)
+
+        cur_seq = int(mavPacket[4:6], 16)
+
+        print(common.mavlink['GLOBAL_POSITION_INT'])
+        if msg_id == common.mavlink['GLOBAL_POSITION_INT']:
+            if ver == 'fd':
+                base_offset = 20
+                time_boot_ms = mavPacket[base_offset:base_offset+8].lower()
+                base_offset += 8
+                lat = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                lon = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                alt = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                relative_alt = mavPacket[base_offset:base_offset + 8].lower()
+            else:
+                base_offset = 12
+                time_boot_ms = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                lat = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                lon = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                alt = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                relative_alt = mavPacket[base_offset:base_offset + 8].lower()
+
+            fc['global_position_int']['time_boot_ms']
+            fc['global_position_int']['lat']
+            fc['global_position_int']['lon']
+            fc['global_position_int']['alt']
+            fc['global_position_int']['relative_alt']

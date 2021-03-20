@@ -4,22 +4,16 @@
  Created by Wonseok Jung in KETI on 2021-03-16.
 """
 
-import http
-import json
-import uuid
 import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
-import ssl
-import subprocess
-import os, sys, shutil, platform, socket, random, time
+import os, sys, shutil, platform, socket, random, time, subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import thyme
+import conf
 import noti
 import thyme_tas_mav as tas_mav
 from http_adn import *
-
-from conf import conf
-from thyme import sh_state
 
 HTTP_SUBSCRIPTION_ENABLE = 0
 MQTT_SUBSCRIPTION_ENABLE = 0
@@ -80,13 +74,13 @@ def getType(p):
 
 
 # ready for mqtt
-for i in range(0, len(conf['sub'])):
-    if conf['sub'][i]['name'] is not None:
-        if urlparse(conf['sub'][i]['nu']).scheme == 'http:':
+for i in range(0, len(conf.conf['sub'])):
+    if conf.conf['sub'][i]['name'] is not None:
+        if urlparse(conf.conf['sub'][i]['nu']).scheme == 'http:':
             HTTP_SUBSCRIPTION_ENABLE = 1
-            if urlparse(conf['sub'][i]['nu']).netloc == 'autoset':
-                conf.sub[i]['nu'] = 'http://' + socket.gethostbyname(socket.gethostname()) + ':' + conf['ae']['port'] + urlparse(conf['sub'][i]['nu'])['pathname']
-        elif urlparse(conf['sub'][i]['nu']).scheme == 'mqtt:':
+            if urlparse(conf.conf['sub'][i]['nu']).netloc == 'autoset':
+                conf.conf.sub[i]['nu'] = 'http://' + socket.gethostbyname(socket.gethostname()) + ':' + conf.conf['ae']['port'] + urlparse(conf.conf['sub'][i]['nu'])['pathname']
+        elif urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt:':
             MQTT_SUBSCRIPTION_ENABLE = 1
         else:
             print('notification uri of subscription is not supported')
@@ -97,26 +91,25 @@ request_count = 0
 
 def ready_for_notification():
     global noti_topic
-    global mqtt_client
 
     if HTTP_SUBSCRIPTION_ENABLE == 1:
-        server = HTTPServer(('0.0.0.0', int(conf['ae']['port'])), BaseHTTPRequestHandler)
-        print('http_server running at {} port'.format(conf['ae']['port']))
+        server = HTTPServer(('0.0.0.0', int(conf.conf['ae']['port'])), BaseHTTPRequestHandler)
+        print('http_server running at {} port'.format(conf.conf['ae']['port']))
         server.serve_forever()
 
     if MQTT_SUBSCRIPTION_ENABLE == 1:
-        for i in range(0, len(conf['sub'])):
-            if conf['sub'][i]['name'] is not None:
-                if urlparse(conf['sub'][i]['nu']).scheme == 'mqtt:':
-                    if urlparse(conf['sub'][i]['nu']).netloc == 'autoset':
-                        conf['sub'][i]['nu'] = 'mqtt://' + conf['cse']['host'] + '/' + conf['ae']['id']
-                        noti_topic = '/oneM2M/req/+/{}/#'.format(conf['ae']['id'])
-                    elif urlparse(conf['sub'][i]['nu']).netloc == conf['cse']['host']:
-                        noti_topic = '/oneM2M/req/+/{}/#'.format(conf['ae']['id'])
+        for i in range(0, len(conf.conf['sub'])):
+            if conf.conf['sub'][i]['name'] is not None:
+                if urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt:':
+                    if urlparse(conf.conf['sub'][i]['nu']).netloc == 'autoset':
+                        conf.conf['sub'][i]['nu'] = 'mqtt://' + conf.conf['cse']['host'] + '/' + conf.conf['ae']['id']
+                        noti_topic = '/oneM2M/req/+/{}/#'.format(conf.conf['ae']['id'])
+                    elif urlparse(conf.conf['sub'][i]['nu']).netloc == conf.conf['cse']['host']:
+                        noti_topic = '/oneM2M/req/+/{}/#'.format(conf.conf['ae']['id'])
                     else:
-                        noti_topic = '{}'.format(urlparse(conf['sub'][i]['nu']).path)
+                        noti_topic = '{}'.format(urlparse(conf.conf['sub'][i]['nu']).path)
 
-        mqtt_connect(conf['cse']['host'])
+        mqtt_connect(conf.conf['cse']['host'])
 
         muv_mqtt_connect('localhost', 1883)
 
@@ -222,19 +215,19 @@ def requireMsw(mission_name, directory_name):
 
 def ae_response_action(status, res_body):
     aeid = res_body['m2m:ae']['aei']
-    conf['ae']['id'] = aeid
+    conf.conf['ae']['id'] = aeid
 
     return status, aeid
 
 
 def create_cnt_all(count):
-    if len(conf['cnt']) == 0:
+    if len(conf.conf['cnt']) == 0:
         return 2001, count
     else:
         try:
-            if conf['cnt'][count] is not None:
-                parent = conf['cnt'][count]['parent']
-                rn = conf['cnt'][count]['name']
+            if conf.conf['cnt'][count] is not None:
+                parent = conf.conf['cnt'][count]['parent']
+                rn = conf.conf['cnt'][count]['name']
                 rsc, res_body, count = crtct(parent, rn, count)
                 if rsc == 5106 or rsc == 2001 or rsc == 4105:
                     count += 1
@@ -248,12 +241,13 @@ def create_cnt_all(count):
             # print(e)
             return 2001, count
 
+
 def delete_sub_all(count):
-    if len(conf['sub']) == 0:
+    if len(conf.conf['sub']) == 0:
         return 2001, count
     else:
-        if conf['sub'].get(count):
-            target = conf['sub'][count]['parent'] + '/' + conf['sub'][count]['name']
+        if conf.conf['sub'].get(count):
+            target = conf.conf['sub'][count]['parent'] + '/' + conf.conf['sub'][count]['name']
             rsc, res_body, count = delsub(target, count)
             if rsc == 5106 or rsc == 2002 or rsc == 2000 or rsc == 4105 or rsc == 4004:
                 count += 1
@@ -266,13 +260,13 @@ def delete_sub_all(count):
 
 
 def create_sub_all(count):
-    if len(conf['sub']) == 0:
+    if len(conf.conf['sub']) == 0:
         return 2001, count
     else:
-        if conf['sub'].get(count):
-            parent = conf['sub'][count]['parent']
-            rn = conf['sub'][count]['name']
-            nu = conf['sub'][count]['nu']
+        if conf.conf['sub'].get(count):
+            parent = conf.conf['sub'][count]['parent']
+            rn = conf.conf['sub'][count]['name']
+            nu = conf.conf['sub'][count]['nu']
             rsc, res_body, count = crtsub(parent, rn, nu, count)
             if rsc == 5106 or rsc == 2001 or rsc == 4105:
                 count += 1
@@ -286,8 +280,9 @@ def create_sub_all(count):
 
 drone_info = {}
 mission_parent = []
+
+
 def retrieve_my_cnt_name():
-    global sh_state
     global drone_info
     global mission_parent
     global MQTT_SUBSCRIPTION_ENABLE
@@ -298,35 +293,36 @@ def retrieve_my_cnt_name():
     global muv_pub_fc_hb_topic
     global muv_sub_msw_topic
     global my_drone_type
+    global my_cnt_name
 
-    res, res_body, count = rtvct('/Mobius/'+conf['ae']['approval_gcs']+'/approval/'+conf['ae']['name']+'/la', 0)
+    res, res_body, count = rtvct('/Mobius/'+conf.conf['ae']['approval_gcs']+'/approval/'+conf.conf['ae']['name']+'/la', 0)
     if res == 2000:
         drone_info = res_body['m2m:cin']['con']
 
-        conf['sub'] = []
-        conf['cnt'] = []
-        conf['fc'] = []
+        conf.conf['sub'] = []
+        conf.conf['cnt'] = []
+        conf.conf['fc'] = []
 
         my_gcs_name = drone_info['gcs']
 
         if drone_info.get('host'):
-            conf['cse']['host'] = drone_info['host']
+            conf.conf['cse']['host'] = drone_info['host']
 
-        print("gcs host is " + conf['cse']['host'])
+        print("gcs host is " + conf.conf['cse']['host'])
 
         info = {}
         info['parent'] = '/Mobius/' + drone_info['gcs']
         info['name'] = 'Drone_Data'
-        conf['cnt'].append(info)
+        conf.conf['cnt'].append(info)
 
         info = {}
         info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Drone_Data'
         info['name'] = drone_info['drone']
-        conf['cnt'].append(info)
+        conf.conf['cnt'].append(info)
 
         info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Drone_Data/' + drone_info['drone']
         info['name'] = my_sortie_name
-        conf['cnt'].append(info)
+        conf.conf['cnt'].append(info)
 
         my_parent_cnt_name = info['parent']
         my_cnt_name = my_parent_cnt_name + '/' + info['name']
@@ -335,12 +331,12 @@ def retrieve_my_cnt_name():
         info = {}
         info['parent'] = '/Mobius/' + drone_info['gcs']
         info['name'] = 'Mission_Data'
-        conf['cnt'].append(info)
+        conf.conf['cnt'].append(info)
 
         info = {}
         info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data'
         info['name'] = drone_info['drone']
-        conf['cnt'].append(info)
+        conf.conf['cnt'].append(info)
 
         if drone_info.get('mission'):
             for mission_name in drone_info['mission']:
@@ -348,7 +344,7 @@ def retrieve_my_cnt_name():
                     info = {}
                     info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info['drone']
                     info['name'] = mission_name
-                    conf['cnt'].append(info)
+                    conf.conf['cnt'].append(info)
 
                     chk_cnt = 'container'
                     if drone_info['mission'][mission_name].get(chk_cnt):
@@ -358,13 +354,13 @@ def retrieve_my_cnt_name():
                                 info = {}
                                 info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info['drone'] + '/' + mission_name
                                 info['name'] = container_name
-                                conf['cnt'].append(info)
+                                conf.conf['cnt'].append(info)
 
                                 info = {}
                                 info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
                                     'drone'] + '/' + mission_name + '/' + container_name
                                 info['name'] = my_sortie_name
-                                conf['cnt'].append(info)
+                                conf.conf['cnt'].append(info)
                                 mission_parent.append(info['parent'])
 
                                 muv_sub_msw_topic.append(info['parent'] + '/#')
@@ -375,7 +371,7 @@ def retrieve_my_cnt_name():
                                         'drone'] + '/' + mission_name + '/' + container_name
                                     info['name'] = 'sub_msw'
                                     info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + drone_info['mission'][mission_name][chk_cnt][i].split(':')[1] + '?ct=json'
-                                    conf['cnt'].append(info)
+                                    conf.conf['cnt'].append(info)
 
                     chk_cnt = 'sub_container'
                     if drone_info['mission'][mission_name].get(chk_cnt):
@@ -386,14 +382,14 @@ def retrieve_my_cnt_name():
                                 info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
                                     'drone'] + '/' + mission_name
                                 info['name'] = sub_container_name
-                                conf['cnt'].append(info)
+                                conf.conf['cnt'].append(info)
 
                                 info = {}
                                 info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
                                     'drone'] + '/' + mission_name + '/' + sub_container_name
                                 info['name'] = sub_container_name
-                                info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + conf['ae']['id'] + '?ct=json'
-                                conf['cnt'].append(info)
+                                info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + conf.conf['ae']['id'] + '?ct=json'
+                                conf.conf['cnt'].append(info)
 
                     chk_cnt = 'fc_container'
                     if drone_info['mission'][mission_name].get(chk_cnt):
@@ -403,7 +399,7 @@ def retrieve_my_cnt_name():
                                 info = {}
                                 info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info['drone'] + '/' + mission_name
                                 info['name'] = container_name
-                                conf['fc'].append(info)
+                                conf.conf['fc'].append(info)
 
                     chk_cnt = 'git'
                     if drone_info['mission'][mission_name].get(chk_cnt):
@@ -437,7 +433,7 @@ def retrieve_my_cnt_name():
 
         muv_sub_gcs_topic = '/Mobius/' + my_gcs_name + '/GCS_Data/' + drone_info['drone']
         MQTT_SUBSCRIPTION_ENABLE = 1
-        sh_state = 'crtae'
+        thyme.sh_state = 'crtae'
         http_watchdog()
     else:
         print('x-m2m-rsc : ' + str(res) + ' <----' + str(res_body))
@@ -446,47 +442,46 @@ def retrieve_my_cnt_name():
 
 
 def http_watchdog():
-    global sh_state
     global return_count
     global request_count
 
-    if sh_state == 'rtvct':
-        print('[sh_state] : {}'.format(sh_state))
+    if thyme.sh_state == 'rtvct':
+        print('[sh_state] : {}'.format(thyme.sh_state))
         retrieve_my_cnt_name()
-    elif sh_state == 'crtae':
-        print('[sh_state] : {}'.format(sh_state))
-        status, res_body = crtae(conf['ae']['parent'], conf['ae']['name'], conf['ae']['appid'])
+    elif thyme.sh_state == 'crtae':
+        print('[sh_state] : {}'.format(thyme.sh_state))
+        status, res_body = crtae(conf.conf['ae']['parent'], conf.conf['ae']['name'], conf.conf['ae']['appid'])
         print(res_body)
         if status == 2001:
             status, aeid = ae_response_action(status, res_body)
             print('x-m2m-rsc : ' + str(status) + ' - ' + aeid + ' <----')
-            sh_state = 'rtvae'
+            thyme.sh_state = 'rtvae'
             request_count = 0
             return_count = 0
 
             http_watchdog()
         elif status == 5106 or status == 4105:
             print('x-m2m-rsc : ' + str(status) + ' <----')
-            sh_state = 'rtvae'
+            thyme.sh_state = 'rtvae'
 
             http_watchdog()
         else:
             print('x-m2m-rsc : ' + str(status) + ' <----')
             http_watchdog()
-    elif sh_state == 'rtvae':
-        if conf['ae']['id'] == 'S':
-            conf['ae']['id'] = 'S' + uuid.uuid1()
+    elif thyme.sh_state == 'rtvae':
+        if conf.conf['ae']['id'] == 'S':
+            conf.conf['ae']['id'] = 'S' + uuid.uuid1()
 
-        print('[sh_state] : {}'.format(sh_state))
-        status, res_body = rtvae(conf['ae']['parent'] + '/' + conf['ae']['name'])
+        print('[sh_state] : {}'.format(thyme.sh_state))
+        status, res_body = rtvae(conf.conf['ae']['parent'] + '/' + conf.conf['ae']['name'])
         if status == 2000:
             aeid = res_body['m2m:ae']['aei']
             print('x-m2m-rsc : ' + str(status) + ' - ' + aeid + ' <----')
 
-            if (conf['ae']['id'] != aeid) and (conf['ae']['id'] != ('/' + aeid)):
-                print('AE-ID created is ' + aeid + ' not equal to device AE-ID is ' + conf['ae']['id'])
+            if (conf.conf['ae']['id'] != aeid) and (conf.conf['ae']['id'] != ('/' + aeid)):
+                print('AE-ID created is ' + aeid + ' not equal to device AE-ID is ' + conf.conf['ae']['id'])
             else:
-                sh_state = 'crtct'
+                thyme.sh_state = 'crtct'
                 request_count = 0
                 return_count = 0
 
@@ -494,8 +489,8 @@ def http_watchdog():
         else:
             print('x-m2m-rsc : ' + str(status) + ' <----')
             http_watchdog()
-    elif sh_state == 'crtct':
-        print('[sh_state] : {}'.format(sh_state))
+    elif thyme.sh_state == 'crtct':
+        print('[sh_state] : {}'.format(thyme.sh_state))
         status, count = create_cnt_all(request_count)
         if status == 9999:
             http_watchdog()
@@ -503,14 +498,14 @@ def http_watchdog():
             count += 1
             request_count = count
             return_count = 0
-            if len(conf['cnt']) <= count:
-                sh_state = 'delsub'
+            if len(conf.conf['cnt']) <= count:
+                thyme.sh_state = 'delsub'
                 request_count = 0
                 return_count = 0
 
                 http_watchdog()
-    elif sh_state == 'delsub':
-        print('[sh_state] : {}'.format(sh_state))
+    elif thyme.sh_state == 'delsub':
+        print('[sh_state] : {}'.format(thyme.sh_state))
         status, count = delete_sub_all(request_count)
         if status == 9999:
             http_watchdog()
@@ -518,14 +513,14 @@ def http_watchdog():
             count += 1
             request_count = count
             return_count = 0
-            if len(conf['sub']) <= count:
-                sh_state = 'crtsub'
+            if len(conf.conf['sub']) <= count:
+                thyme.sh_state = 'crtsub'
                 request_count = 0
                 return_count = 0
 
                 http_watchdog()
-    elif sh_state == 'crtsub':
-        print('[sh_state] : {}'.format(sh_state))
+    elif thyme.sh_state == 'crtsub':
+        print('[sh_state] : {}'.format(thyme.sh_state))
         status, count = create_sub_all(request_count)
         if status == 9999:
             http_watchdog()
@@ -533,43 +528,38 @@ def http_watchdog():
             count += 1
             request_count = count
             return_count = 0
-            if len(conf['sub']) <= count:
-                sh_state = 'crtci'
+            if len(conf.conf['sub']) <= count:
+                thyme.sh_state = 'crtci'
 
                 ready_for_notification()
 
-                tas_mav.tas_ready(my_drone_type)
+                tas_mav.tas_ready()
 
                 http_watchdog()
-    elif sh_state == 'crtci':
-        # print('[sh_state] : {}'.format(sh_state))
+    elif thyme.sh_state == 'crtci':
+        # print('[sh_state] : {}'.format(thyme.sh_state))
         pass
 
 
 def fc_on_connect(client,userdata,flags, rc):
-    global mqtt_client
     global muv_sub_gcs_topic
     global noti_topic
     global muv_sub_msw_topic
 
     if muv_sub_gcs_topic != '':
-        mqtt_client.subscribe(muv_sub_gcs_topic, 0)
+        thyme.mqtt_client.subscribe(muv_sub_gcs_topic, 0)
         print('[mqtt_connect] muv_sub_gcs_topic is subscribed: ' + muv_sub_gcs_topic)
 
     if noti_topic != '':
-        mqtt_client.subscribe(noti_topic, 0)
+        thyme.mqtt_client.subscribe(noti_topic, 0)
         print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
 
 
-
 def fc_on_subscribe(client, userdata, mid, granted_qos):
-    global mqtt_client
-    global muv_mqtt_client
     print("muv_mqtt_client subscribed: " + str(mid) + " " + str(granted_qos))
 
 
 def fc_on_message(client, userdata, msg):
-    global mqtt_client
     global muv_sub_gcs_topic
     global noti_topic
 
@@ -577,7 +567,7 @@ def fc_on_message(client, userdata, msg):
     print(message)
 
     if msg.topic == muv_sub_gcs_topic:
-        tas_mav.gcs_noti_handler(message, my_drone_type)
+        tas_mav.gcs_noti_handler(message)
 
     else:
         if msg.topic.includes('/oneM2M/req/'):
@@ -589,64 +579,57 @@ def fc_on_message(client, userdata, msg):
             noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
 
 
-from thyme import mqtt_client
 def mqtt_connect(serverip):
-    global mqtt_client
     global muv_sub_gcs_topic
     global noti_topic
 
-    if mqtt_client is None:
-        if conf['usesecure'] == 'disable':
-            mqtt_client = mqtt.Client()
-            mqtt_client.on_connect = fc_on_connect
-            mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
-            mqtt_client.on_subscribe = fc_on_subscribe
-            mqtt_client.on_message = fc_on_message
-            mqtt_client.connect(serverip, int(conf['cse']['mqttport']), keepalive=10)
-            mqtt_client.loop_start()
+    if thyme.mqtt_client is None:
+        if conf.conf['usesecure'] == 'disable':
+            thyme.mqtt_client = mqtt.Client()
+            thyme.mqtt_client.on_connect = fc_on_connect
+            thyme.mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
+            thyme.mqtt_client.on_subscribe = fc_on_subscribe
+            thyme.mqtt_client.on_message = fc_on_message
+            thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
+            thyme.mqtt_client.loop_start()
             print('fc_mqtt is connected to {}'.format(serverip))
 
         else:
             """TBD mqtt secure"""
-            # mqtt_client = mqtt.Client()
-            # mqtt_client.on_connect = on_connect
-            # mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
-            # mqtt_client.on_disconnect = on_disconnect
-            # mqtt_client.on_subscribe = on_subscribe
-            # mqtt_client.on_message = on_message
+            # thyme.mqtt_client = mqtt.Client()
+            # thyme.mqtt_client.on_connect = on_connect
+            # thyme.mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
+            # thyme.mqtt_client.on_disconnect = on_disconnect
+            # thyme.mqtt_client.on_subscribe = on_subscribe
+            # thyme.mqtt_client.on_message = on_message
             # print('fc_mqtt is connected')
             # if (sub_gcs_topic is not ''):
             #     print(sub_gcs_topic)
-            #     mqtt_client.subscribe(sub_gcs_topic, 0)
+            #     thyme.mqtt_client.subscribe(sub_gcs_topic, 0)
             #     print('[mqtt_connect] sub_gcs_topic is subscribed: ' + sub_gcs_topic)
             #
             # if (noti_topic is not ''):
-            #     mqtt_client.subscribe(noti_topic, 0)
+            #     thyme.mqtt_client.subscribe(noti_topic, 0)
             #     print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
-            # mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
-            # mqtt_client.connect(serverip, int(conf['cse']['mqttport']), keepalive=10)
-            # mqtt_client.loop_start()
-            # print(mqtt_client)
+            # thyme.mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
+            # thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
+            # thyme.mqtt_client.loop_start()
+            # print(thyme.mqtt_client)
 
 
 def muv_on_connect(client,userdata,flags, rc):
-    global muv_mqtt_client
     global muv_sub_msw_topic
 
     for idx in range(len(muv_sub_msw_topic)):
-        muv_mqtt_client.subscribe(muv_sub_msw_topic[idx], 0)
+        thyme.muv_mqtt_client.subscribe(muv_sub_msw_topic[idx], 0)
         print('[muv_mqtt_connect] muv_sub_msw_topic[{0}]: {1}'.format(str(idx), muv_sub_msw_topic[idx]))
 
 
 def muv_on_subscribe(client, userdata, mid, granted_qos):
-    global muv_mqtt_client
-
     print("muv_sub_msw_topic subscribed: " + str(mid) + " " + str(granted_qos))
 
 
 def muv_on_message(client, userdata, msg):
-    global muv_mqtt_client
-
     message = str(msg.payload.decode("utf-8"))
     print(message)
 
@@ -661,20 +644,18 @@ def muv_on_message(client, userdata, msg):
         # print(topic + ' - ' + msg_obj)
 
 
-from thyme import muv_mqtt_client
 def muv_mqtt_connect(broker_ip, port):
-    global muv_mqtt_client
     global muv_sub_msw_topic
 
-    if muv_mqtt_client is None:
-        if conf['usesecure'] == 'disable':
-            muv_mqtt_client = mqtt.Client()
-            muv_mqtt_client.on_connect = muv_on_connect
-            muv_mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
-            muv_mqtt_client.on_subscribe = muv_on_subscribe
-            muv_mqtt_client.on_message = muv_on_message
-            muv_mqtt_client.connect(broker_ip, port, keepalive=10)
-            muv_mqtt_client.loop_start()
+    if thyme.muv_mqtt_client is None:
+        if conf.conf['usesecure'] == 'disable':
+            thyme.muv_mqtt_client = mqtt.Client()
+            thyme.muv_mqtt_client.on_connect = muv_on_connect
+            thyme.muv_mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
+            thyme.muv_mqtt_client.on_subscribe = muv_on_subscribe
+            thyme.muv_mqtt_client.on_message = muv_on_message
+            thyme.muv_mqtt_client.connect(broker_ip, port, keepalive=10)
+            thyme.muv_mqtt_client.loop_start()
             print('muv_mqtt is connected to {}'.format(broker_ip))
 
         else:
