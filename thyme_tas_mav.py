@@ -4,7 +4,7 @@
  Created by Wonseok Jung in KETI on 2021-03-16.
 """
 
-import datetime, serial, json, binascii, threading
+import datetime, serial, json
 
 import http_adn
 import http_app
@@ -33,7 +33,7 @@ def tas_ready():
             # _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # print('socket connected')
     elif http_app.my_drone_type == 'pixhawk':
-        mavPortNum = '/dev/tty.usbmodem143201'
+        mavPortNum = '/dev/ttyAMA0'
         mavBaudrate = '57600'
         mavPortOpening()
 
@@ -412,8 +412,8 @@ def mavPortData():
                 arr = hex.split(":")
                 for i in arr:
                     mavarr.append(int("0x" + i, 0))
-                print(mavPacket)
-                print(bytearray(mavarr))
+                # print(mavPacket)
+                # print(bytearray(mavarr))
                 thyme.mqtt_client.publish(http_app.my_cnt_name, bytearray(mavarr))
                 send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
                 parseMavFromDrone(mavPacket)
@@ -525,14 +525,13 @@ def parseMavFromDrone(mavPacket):
                 base_offset += 8
                 relative_alt = mavPacket[base_offset:base_offset + 8].lower()
 
-            print(time_boot_ms)
-            # fc['global_position_int']['time_boot_ms'] =
-            # fc['global_position_int']['lat'] =
-            # fc['global_position_int']['lon'] =
-            # fc['global_position_int']['alt'] =
-            # fc['global_position_int']['relative_alt'] =
-            #
-            # thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_gpi_topic, json.loads)
+            fc['global_position_int']['time_boot_ms'] = HexstrtoInt(time_boot_ms)
+            fc['global_position_int']['lat'] = HexstrtoInt(lat)
+            fc['global_position_int']['lon'] = HexstrtoInt(lon)
+            fc['global_position_int']['alt'] = HexstrtoInt(alt)
+            fc['global_position_int']['relative_alt'] = HexstrtoInt(relative_alt)
+
+            thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_gpi_topic, json.dumps(fc['global_position_int']))
 
         elif msg_id == common.mavlink['HEARTBEAT']: # 00
             if ver == 'fd':
@@ -562,14 +561,14 @@ def parseMavFromDrone(mavPacket):
                 base_offset += 2
                 mavlink_version = mavPacket[base_offset:base_offset + 2].lower()
 
-            # fc['heartbeat']['type'] =
-            # fc['heartbeat']['autopilot'] =
-            # fc['heartbeat']['base_mode'] =
-            # fc['heartbeat']['custom_mode'] =
-            # fc['heartbeat']['system_status'] =
-            # fc['heartbeat']['mavlink_version'] =
+            fc['heartbeat']['type'] = HexstrtoInt(type)
+            fc['heartbeat']['autopilot'] = HexstrtoInt(autopilot)
+            fc['heartbeat']['base_mode'] = HexstrtoInt(base_mode)
+            fc['heartbeat']['custom_mode'] = HexstrtoInt(custom_mode)
+            fc['heartbeat']['system_status'] = HexstrtoInt(system_status)
+            fc['heartbeat']['mavlink_version'] = HexstrtoInt(mavlink_version)
 
-            # thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_hb_topic, json.loads(fc['heartbeat']))
+            thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_hb_topic, json.dumps(fc['heartbeat']))
 
             if fc['heartbeat']['base_mode'] & 0x80:
                 if flag_base_mode == 3:
@@ -611,9 +610,8 @@ def calculateFlightTime(cal_sortiename):
     global flight_time
 
     end_arm_time = datetime.datetime.now()
-    start_arm_time = datetime.datetime.now()
     arming_time = (end_arm_time - start_arm_time).seconds
-    print('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '/la')
+
     rsc, res_body, count = http_adn.rtvct('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '/la', 0)
     if rsc == 2000:
         flight_time = res_body['m2m:cin']['con']
@@ -623,16 +621,16 @@ def calculateFlightTime(cal_sortiename):
             flight_time['total_flight_time'] += arming_time
 
         flight_time['arming_time'] = arming_time
-        flight_time['sortie_time'] = cal_sortiename
+        flight_time['sortie_name'] = cal_sortiename
 
         http_adn.crtci('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '?rcn=0', 0, flight_time, None)
 
     else:
         rsc, res_body, count = http_adn.crtct('/Mobius/Life_Prediction/History' + '?rcn=0', thyme.conf['ae']['name'], 0)
 
-        flight_time.total_flight_time = arming_time
-        flight_time.arming_time = arming_time
-        flight_time.sortie_name = cal_sortiename
+        flight_time['total_flight_time'] = arming_time
+        flight_time['arming_time'] = arming_time
+        flight_time['sortie_name'] = cal_sortiename
         http_adn.crtci('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '?rcn=0', 0, flight_time, None)
 
     cal_sortiename = ''
@@ -641,3 +639,13 @@ def calculateFlightTime(cal_sortiename):
 def createMissionContainer(idx):
     mission_parent_path = idx
     rsc, res_body, count = http_adn.crtct(mission_parent_path + '?rcn=0', http_app.my_sortie_name, 0)
+
+
+def HexstrtoInt(mav):
+    hex = ":".join(mav[i:i + 2] for i in range(0, len(mav), 2))
+    mavarr = []
+    arr = hex.split(":")
+    for i in arr:
+        mavarr.append(int("0x" + i, 0))
+
+    return int.from_bytes(bytearray(mavarr), byteorder='little', signed=True)
