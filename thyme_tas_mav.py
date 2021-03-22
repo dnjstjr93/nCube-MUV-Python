@@ -4,7 +4,10 @@
  Created by Wonseok Jung in KETI on 2021-03-16.
 """
 
-import datetime, serial, json
+import datetime, serial, json, sys
+from multiprocessing import Process
+import asyncio
+import concurrent.futures
 
 import http_adn
 import http_app
@@ -33,7 +36,7 @@ def tas_ready():
             # _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # print('socket connected')
     elif http_app.my_drone_type == 'pixhawk':
-        mavPortNum = '/dev/ttyAMA0'
+        mavPortNum = '/dev/tty.usbmodem143201'
         mavBaudrate = '57600'
         mavPortOpening()
 
@@ -323,8 +326,9 @@ def mavPortOpening():
 
     # try:
     if mavPort is None:
-        mavPort = serial.Serial(mavPortNum, int(mavBaudrate), timeout=10)
-        mavPortOpen()
+        sys.setrecursionlimit(2000)
+        mavPort = serial.Serial(mavPortNum, int(mavBaudrate))
+        asyncio.run(mavPortOpen())
     else:
         if mavPort.isOpen():
             pass
@@ -335,11 +339,16 @@ def mavPortOpening():
     #     mavPortError(e)
 
 
-def mavPortOpen():
+async def mavPortOpen():
     global mavPort
 
     print('mavPort open. ' + mavPortNum + ' Data rate: ' + mavBaudrate)
-    mavPortData()
+    sys.setrecursionlimit(10**9)
+    # mavPortData()
+    loop = asyncio.get_running_loop()
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        result = await loop.run_in_executor(
+            pool, mavPortData)
 
 
 def mavPortClose():
@@ -382,19 +391,31 @@ mavStrFromDrone = ''
 mavStrFromDroneLength = 0
 
 
+def readData():
+    global mavPort
+
+    data = mavPort.readline()
+
+    return data
+
+
 def mavPortData():
     global mavPort
     global mavStrFromDroneLength
     global mavStrFromDrone
 
+    data = mavPort.readline()
+    # print(data)
+
     if mavStrFromDroneLength > 0:
         mavStrFromDrone = mavStrFromDrone[mavStrFromDroneLength:]
         mavStrFromDroneLength = 0
 
-    data = mavPort.readline()
-
+    # print(Hex(data))
     mavStrFromDrone += Hex(data)
+    # print(mavStrFromDrone)
     while len(mavStrFromDrone) > 12:
+        # print('mavStrFromDrone: ', mavStrFromDrone)
         stx = mavStrFromDrone[0:2]
         if stx == 'fe':
             if stx == 'fe':
@@ -403,24 +424,21 @@ def mavPortData():
             else:
                 length = int(mavStrFromDrone[2:4], 16)
                 mavLength = (10 * 2) + (length * 2) + (2 * 2)
+            # print('len: ', length)
+            # print('mavLength: ', mavLength)
 
             if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
                 mavStrFromDroneLength += mavLength
                 mavPacket = mavStrFromDrone[0:mavLength]
-                hex = ":".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2))
-                mavarr = []
-                arr = hex.split(":")
-                for i in arr:
-                    mavarr.append(int("0x" + i, 0))
-                # print(mavPacket)
-                # print(bytearray(mavarr))
-                thyme.mqtt_client.publish(http_app.my_cnt_name, bytearray(mavarr))
+                # print('mavPacket2: ', bytearray.fromhex(" ".join(mavPacket[i:i+2] for i in range(0, len(mavPacket), 2))))
+                thyme.mqtt_client.publish(http_app.my_cnt_name, bytearray.fromhex(" ".join(mavPacket[i:i+2] for i in range(0, len(mavPacket), 2))))
                 send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
                 parseMavFromDrone(mavPacket)
             else:
                 break
         else:
             mavStrFromDrone = mavStrFromDrone[2:]
+            # print(mavStrFromDrone)
 
     mavPortData()
 
@@ -530,15 +548,15 @@ def parseMavFromDrone(mavPacket):
             fc['global_position_int']['lon'] = HexstrtoInt(lon)
             fc['global_position_int']['alt'] = HexstrtoInt(alt)
             fc['global_position_int']['relative_alt'] = HexstrtoInt(relative_alt)
-
+            # print(fc['global_position_int'])
             thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_gpi_topic, json.dumps(fc['global_position_int']))
 
         elif msg_id == common.mavlink['HEARTBEAT']: # 00
             if ver == 'fd':
                 base_offset = 20
-                custom_mode = mavPacket[base_offset:base_offset+8].lower()
+                custom_mode = mavPacket[base_offset:base_offset + 8].lower()
                 base_offset += 8
-                type = mavPacket[base_offset:base_offset+2].lower()
+                type = mavPacket[base_offset:base_offset + 2].lower()
                 base_offset += 2
                 autopilot = mavPacket[base_offset:base_offset + 2].lower()
                 base_offset += 2
@@ -567,7 +585,7 @@ def parseMavFromDrone(mavPacket):
             fc['heartbeat']['custom_mode'] = HexstrtoInt(custom_mode)
             fc['heartbeat']['system_status'] = HexstrtoInt(system_status)
             fc['heartbeat']['mavlink_version'] = HexstrtoInt(mavlink_version)
-
+            # print(fc['heartbeat'])
             thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_hb_topic, json.dumps(fc['heartbeat']))
 
             if fc['heartbeat']['base_mode'] & 0x80:
