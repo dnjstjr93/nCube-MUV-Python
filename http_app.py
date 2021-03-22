@@ -6,14 +6,14 @@
 
 import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
-import os, sys, shutil, platform, socket, random, time, subprocess
+import os, sys, shutil, platform, socket, random, time, subprocess, json, uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import thyme
 import conf
 import noti
 import thyme_tas_mav as tas_mav
-from http_adn import *
+import http_adn
 
 HTTP_SUBSCRIPTION_ENABLE = 0
 MQTT_SUBSCRIPTION_ENABLE = 0
@@ -228,7 +228,7 @@ def create_cnt_all(count):
             if conf.conf['cnt'][count] is not None:
                 parent = conf.conf['cnt'][count]['parent']
                 rn = conf.conf['cnt'][count]['name']
-                rsc, res_body, count = crtct(parent, rn, count)
+                rsc, res_body, count = http_adn.crtct(parent, rn, count)
                 if rsc == 5106 or rsc == 2001 or rsc == 4105:
                     count += 1
                     status, count = create_cnt_all(count)
@@ -248,7 +248,7 @@ def delete_sub_all(count):
     else:
         if conf.conf['sub'].get(count):
             target = conf.conf['sub'][count]['parent'] + '/' + conf.conf['sub'][count]['name']
-            rsc, res_body, count = delsub(target, count)
+            rsc, res_body, count = http_adn.delsub(target, count)
             if rsc == 5106 or rsc == 2002 or rsc == 2000 or rsc == 4105 or rsc == 4004:
                 count += 1
                 status, count = delete_sub_all(count)
@@ -267,7 +267,7 @@ def create_sub_all(count):
             parent = conf.conf['sub'][count]['parent']
             rn = conf.conf['sub'][count]['name']
             nu = conf.conf['sub'][count]['nu']
-            rsc, res_body, count = crtsub(parent, rn, nu, count)
+            rsc, res_body, count = http_adn.crtsub(parent, rn, nu, count)
             if rsc == 5106 or rsc == 2001 or rsc == 4105:
                 count += 1
                 status, count = create_sub_all(count)
@@ -295,7 +295,7 @@ def retrieve_my_cnt_name():
     global my_drone_type
     global my_cnt_name
 
-    res, res_body, count = rtvct('/Mobius/'+conf.conf['ae']['approval_gcs']+'/approval/'+conf.conf['ae']['name']+'/la', 0)
+    res, res_body, count = http_adn.rtvct('/Mobius/'+conf.conf['ae']['approval_gcs']+'/approval/'+conf.conf['ae']['name']+'/la', 0)
     if res == 2000:
         drone_info = res_body['m2m:cin']['con']
 
@@ -450,7 +450,7 @@ def http_watchdog():
         retrieve_my_cnt_name()
     elif thyme.sh_state == 'crtae':
         print('[sh_state] : {}'.format(thyme.sh_state))
-        status, res_body = crtae(conf.conf['ae']['parent'], conf.conf['ae']['name'], conf.conf['ae']['appid'])
+        status, res_body = http_adn.crtae(conf.conf['ae']['parent'], conf.conf['ae']['name'], conf.conf['ae']['appid'])
         print(res_body)
         if status == 2001:
             status, aeid = ae_response_action(status, res_body)
@@ -473,7 +473,7 @@ def http_watchdog():
             conf.conf['ae']['id'] = 'S' + uuid.uuid1()
 
         print('[sh_state] : {}'.format(thyme.sh_state))
-        status, res_body = rtvae(conf.conf['ae']['parent'] + '/' + conf.conf['ae']['name'])
+        status, res_body = http_adn.rtvae(conf.conf['ae']['parent'] + '/' + conf.conf['ae']['name'])
         if status == 2000:
             aeid = res_body['m2m:ae']['aei']
             print('x-m2m-rsc : ' + str(status) + ' - ' + aeid + ' <----')
@@ -556,7 +556,7 @@ def fc_on_connect(client,userdata,flags, rc):
 
 
 def fc_on_subscribe(client, userdata, mid, granted_qos):
-    print("muv_mqtt_client subscribed: " + str(mid) + " " + str(granted_qos))
+    print("mqtt_client subscribed: " + str(mid) + " " + str(granted_qos))
 
 
 def fc_on_message(client, userdata, msg):
@@ -656,11 +656,11 @@ def muv_mqtt_connect(broker_ip, port):
             thyme.muv_mqtt_client.on_message = muv_on_message
             thyme.muv_mqtt_client.connect(broker_ip, port, keepalive=10)
             thyme.muv_mqtt_client.loop_start()
-            print('muv_mqtt is connected to {}'.format(broker_ip))
+            print('muv_mqtt_client is connected to {}'.format(broker_ip))
 
         else:
             """TBD mqtt secure"""
 
 
 def send_to_Mobius(topic, content_each_obj, gap):
-    gap, topic, content_each_obj = crtci(topic+'?rcn=0', 0, content_each_obj, None)
+    gap, topic, content_each_obj = http_adn.crtci(topic+'?rcn=0', 0, content_each_obj, None)

@@ -339,11 +339,15 @@ def mavPortOpen():
     global mavPort
 
     print('mavPort open. ' + mavPortNum + ' Data rate: ' + mavBaudrate)
+    # print(mavPort.readlines())
     while True:
         mavPortData()
-    # t1 = threading.Thread(target=mavPortData, )
-    # t1.daemon = True
-    # t1.start()
+    # try:
+    #     mav_thread = threading.Thread(target=mavPortData)
+    #     # mav_thread.daemon = True
+    #     mav_thread.start()
+    # except Exception as e:
+    #     print(e)
 
 
 def mavPortClose():
@@ -411,7 +415,7 @@ def mavPortData():
             if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
                 mavStrFromDroneLength += mavLength
                 mavPacket = mavStrFromDrone[0:mavLength]
-                print(bytearray(bytes(mavPacket, encoding='utf-8')))
+                # print(bytearray(bytes(mavPacket, encoding='utf-8')))
                 hex = ":".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2))
                 mavarr = []
                 arr = hex.split(":")
@@ -502,9 +506,6 @@ def parseMavFromDrone(mavPacket):
 
         cur_seq = int(mavPacket[4:6], 16)
 
-        print(common.mavlink['GLOBAL_POSITION_INT'])
-        print(common.mavlink['COMMAND_LONG'])
-
         if msg_id == common.mavlink['GLOBAL_POSITION_INT']: # 33
             if ver == 'fd':
                 base_offset = 20
@@ -529,12 +530,13 @@ def parseMavFromDrone(mavPacket):
                 base_offset += 8
                 relative_alt = mavPacket[base_offset:base_offset + 8].lower()
 
+            print(time_boot_ms)
             # fc['global_position_int']['time_boot_ms'] =
             # fc['global_position_int']['lat'] =
             # fc['global_position_int']['lon'] =
             # fc['global_position_int']['alt'] =
             # fc['global_position_int']['relative_alt'] =
-
+            #
             # thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_gpi_topic, json.loads)
 
         elif msg_id == common.mavlink['HEARTBEAT']: # 00
