@@ -339,15 +339,7 @@ def mavPortOpen():
     global mavPort
 
     print('mavPort open. ' + mavPortNum + ' Data rate: ' + mavBaudrate)
-    # print(mavPort.readlines())
-    while True:
-        mavPortData()
-    # try:
-    #     mav_thread = threading.Thread(target=mavPortData)
-    #     # mav_thread.daemon = True
-    #     mav_thread.start()
-    # except Exception as e:
-    #     print(e)
+    mavPortData()
 
 
 def mavPortClose():
@@ -415,12 +407,13 @@ def mavPortData():
             if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
                 mavStrFromDroneLength += mavLength
                 mavPacket = mavStrFromDrone[0:mavLength]
-                # print(bytearray(bytes(mavPacket, encoding='utf-8')))
                 hex = ":".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2))
                 mavarr = []
                 arr = hex.split(":")
                 for i in arr:
                     mavarr.append(int("0x" + i, 0))
+                print(mavPacket)
+                print(bytearray(mavarr))
                 thyme.mqtt_client.publish(http_app.my_cnt_name, bytearray(mavarr))
                 send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
                 parseMavFromDrone(mavPacket)
@@ -428,6 +421,8 @@ def mavPortData():
                 break
         else:
             mavStrFromDrone = mavStrFromDrone[2:]
+
+    mavPortData()
 
 
 fc = {}

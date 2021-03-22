@@ -622,7 +622,7 @@ def muv_on_connect(client,userdata,flags, rc):
 
     for idx in range(len(muv_sub_msw_topic)):
         thyme.muv_mqtt_client.subscribe(muv_sub_msw_topic[idx], 0)
-        print('[muv_mqtt_connect] muv_sub_msw_topic[{0}]: {1}'.format(str(idx), muv_sub_msw_topic[idx]))
+        print('[muv_mqtt_connect] noti_topic[{0}]: {1}'.format(str(idx), muv_sub_msw_topic[idx]))
 
 
 def muv_on_subscribe(client, userdata, mid, granted_qos):
@@ -656,7 +656,7 @@ def muv_mqtt_connect(broker_ip, port):
             thyme.muv_mqtt_client.on_message = muv_on_message
             thyme.muv_mqtt_client.connect(broker_ip, port, keepalive=10)
             thyme.muv_mqtt_client.loop_start()
-            print('muv_mqtt_client is connected to {}'.format(broker_ip))
+            print('muv_mqtt_client connected to {}'.format(broker_ip))
 
         else:
             """TBD mqtt secure"""
