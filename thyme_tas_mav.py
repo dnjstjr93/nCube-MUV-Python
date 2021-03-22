@@ -6,7 +6,7 @@
 
 import datetime, serial, json, binascii, threading
 
-from http_adn import *
+import http_adn
 import http_app
 import thyme
 
@@ -50,7 +50,7 @@ def send_aggr_to_Mobius(topic, content_each, gap):
         timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
         aggr_content[topic][timestamp] = content_each
 
-        crtci(topic+'?rcn=0', 0, aggr_content[topic], None)
+        http_adn.crtci(topic+'?rcn=0', 0, aggr_content[topic], None)
         del aggr_content[topic]
 
         return gap, topic
@@ -419,7 +419,7 @@ def mavPortData():
                     mavarr.append(int("0x" + i, 0))
                 thyme.mqtt_client.publish(http_app.my_cnt_name, bytearray(mavarr))
                 send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
-                # parseMavFromDrone(mavPacket)
+                parseMavFromDrone(mavPacket)
             else:
                 break
         else:
@@ -481,7 +481,13 @@ cal_sortiename = ''
 
 from pymavlinklib import common
 
+
 def parseMavFromDrone(mavPacket):
+    global flag_base_mode
+    global start_arm_time
+    global cal_sortiename
+    global cal_flag
+
     try:
         ver = mavPacket[0:2]
         if ver == 'fd':
@@ -497,7 +503,9 @@ def parseMavFromDrone(mavPacket):
         cur_seq = int(mavPacket[4:6], 16)
 
         print(common.mavlink['GLOBAL_POSITION_INT'])
-        if msg_id == common.mavlink['GLOBAL_POSITION_INT']:
+        print(common.mavlink['COMMAND_LONG'])
+
+        if msg_id == common.mavlink['GLOBAL_POSITION_INT']: # 33
             if ver == 'fd':
                 base_offset = 20
                 time_boot_ms = mavPacket[base_offset:base_offset+8].lower()
@@ -521,8 +529,118 @@ def parseMavFromDrone(mavPacket):
                 base_offset += 8
                 relative_alt = mavPacket[base_offset:base_offset + 8].lower()
 
-            fc['global_position_int']['time_boot_ms']
-            fc['global_position_int']['lat']
-            fc['global_position_int']['lon']
-            fc['global_position_int']['alt']
-            fc['global_position_int']['relative_alt']
+            # fc['global_position_int']['time_boot_ms'] =
+            # fc['global_position_int']['lat'] =
+            # fc['global_position_int']['lon'] =
+            # fc['global_position_int']['alt'] =
+            # fc['global_position_int']['relative_alt'] =
+
+            # thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_gpi_topic, json.loads)
+
+        elif msg_id == common.mavlink['HEARTBEAT']: # 00
+            if ver == 'fd':
+                base_offset = 20
+                custom_mode = mavPacket[base_offset:base_offset+8].lower()
+                base_offset += 8
+                type = mavPacket[base_offset:base_offset+2].lower()
+                base_offset += 2
+                autopilot = mavPacket[base_offset:base_offset + 2].lower()
+                base_offset += 2
+                base_mode = mavPacket[base_offset:base_offset + 2].lower()
+                base_offset += 2
+                system_status = mavPacket[base_offset:base_offset + 2].lower()
+                base_offset += 2
+                mavlink_version = mavPacket[base_offset:base_offset + 2].lower()
+            else:
+                base_offset = 12
+                custom_mode = mavPacket[base_offset:base_offset + 8].lower()
+                base_offset += 8
+                type = mavPacket[base_offset:base_offset + 2].lower()
+                base_offset += 2
+                autopilot = mavPacket[base_offset:base_offset + 2].lower()
+                base_offset += 2
+                base_mode = mavPacket[base_offset:base_offset + 2].lower()
+                base_offset += 2
+                system_status = mavPacket[base_offset:base_offset + 2].lower()
+                base_offset += 2
+                mavlink_version = mavPacket[base_offset:base_offset + 2].lower()
+
+            # fc['heartbeat']['type'] =
+            # fc['heartbeat']['autopilot'] =
+            # fc['heartbeat']['base_mode'] =
+            # fc['heartbeat']['custom_mode'] =
+            # fc['heartbeat']['system_status'] =
+            # fc['heartbeat']['mavlink_version'] =
+
+            # thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_hb_topic, json.loads(fc['heartbeat']))
+
+            if fc['heartbeat']['base_mode'] & 0x80:
+                if flag_base_mode == 3:
+                    start_arm_time = datetime.datetime.now()
+                    flag_base_mode += 1
+                    http_app.my_sortie_name = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
+                    http_app.my_cnt_name = http_app.my_parent_cnt_name + '/' + http_app.my_sortie_name
+                    rsc, res_body, count = http_adn.crtct(http_app.my_parent_cnt_name + '?rcn=0', http_app.my_sortie_name, 0)
+                    cal_flag = 1
+                    cal_sortiename = http_app.my_sortie_name
+
+                    for idx in http_app.mission_parent:
+                        createMissionContainer(idx)
+                else:
+                    flag_base_mode += 1
+                    if flag_base_mode > 16:
+                        flag_base_mode = 16
+            else:
+                flag_base_mode = 0
+                if cal_flag == 1:
+                    cal_flag = 0
+                    calculateFlightTime(cal_sortiename)
+                http_app.my_sortie_name = 'disarm'
+                http_app.my_cnt_name = http_app.my_parent_cnt_name + '/' + http_app.my_sortie_name
+
+    except Exception as e:
+        print(e)
+
+
+end_arm_time = 0
+arming_time = 0
+flight_time = {}
+
+
+def calculateFlightTime(cal_sortiename):
+    global start_arm_time
+    global end_arm_time
+    global arming_time
+    global flight_time
+
+    end_arm_time = datetime.datetime.now()
+    start_arm_time = datetime.datetime.now()
+    arming_time = (end_arm_time - start_arm_time).seconds
+    print('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '/la')
+    rsc, res_body, count = http_adn.rtvct('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '/la', 0)
+    if rsc == 2000:
+        flight_time = res_body['m2m:cin']['con']
+        if flight_time['total_flight_time'] == 0:
+            flight_time['total_flight_time'] = arming_time
+        else:
+            flight_time['total_flight_time'] += arming_time
+
+        flight_time['arming_time'] = arming_time
+        flight_time['sortie_time'] = cal_sortiename
+
+        http_adn.crtci('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '?rcn=0', 0, flight_time, None)
+
+    else:
+        rsc, res_body, count = http_adn.crtct('/Mobius/Life_Prediction/History' + '?rcn=0', thyme.conf['ae']['name'], 0)
+
+        flight_time.total_flight_time = arming_time
+        flight_time.arming_time = arming_time
+        flight_time.sortie_name = cal_sortiename
+        http_adn.crtci('/Mobius/Life_Prediction/History/' + thyme.conf['ae']['name'] + '?rcn=0', 0, flight_time, None)
+
+    cal_sortiename = ''
+
+
+def createMissionContainer(idx):
+    mission_parent_path = idx
+    rsc, res_body, count = http_adn.crtct(mission_parent_path + '?rcn=0', http_app.my_sortie_name, 0)

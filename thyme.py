@@ -7,7 +7,7 @@
 import conf
 import http_app
 
-conf = conf
+conf = conf.conf
 sh_state = 'rtvct'
 mqtt_client = None
 muv_mqtt_client = None
