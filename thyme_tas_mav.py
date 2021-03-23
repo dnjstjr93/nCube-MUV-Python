@@ -9,6 +9,9 @@ from multiprocessing import Process
 import asyncio
 import concurrent.futures
 
+import threading
+from functools import wraps
+
 import http_adn
 import http_app
 import thyme
@@ -24,6 +27,45 @@ mavBaudrate = '57600'
 mavstr = None
 
 
+def delay(delay=0.):
+    """
+    Decorator delaying the execution of a function for a while.
+    """
+
+    def wrap(f):
+        @wraps(f)
+        def delayed(*args, **kwargs):
+            timer = threading.Timer(delay, f, args=args, kwargs=kwargs)
+            timer.start()
+
+        return delayed
+
+    return wrap
+
+
+class Timer():
+    toClearTimer = False
+
+    def setTimeout(self, fn, time):
+        isInvokationCancelled = False
+
+        @delay(time)
+        def some_fn():
+            if (self.toClearTimer is False):
+                fn()
+            else:
+                print('Invokation is cleared!')
+
+        some_fn()
+        return isInvokationCancelled
+
+    def setClearTimer(self):
+        self.toClearTimer = True
+
+
+timer = Timer()
+
+
 def tas_ready():
     global _server
     global mavPortNum
@@ -36,7 +78,7 @@ def tas_ready():
             # _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # print('socket connected')
     elif http_app.my_drone_type == 'pixhawk':
-        mavPortNum = '/dev/tty.usbmodem143201'
+        mavPortNum = 'COM6'
         mavBaudrate = '57600'
         mavPortOpening()
 
@@ -48,15 +90,21 @@ def send_aggr_to_Mobius(topic, content_each, gap):
     if aggr_content.get(topic):
         timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
         aggr_content[topic][timestamp] = content_each
+
     else:
         aggr_content[topic] = {}
         timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
         aggr_content[topic][timestamp] = content_each
 
-        http_adn.crtci(topic+'?rcn=0', 0, aggr_content[topic], None)
-        del aggr_content[topic]
+        def upload():
+            http_adn.crtci(topic + '?rcn=0', 0, aggr_content[topic], None)
+            del aggr_content[topic]
 
-        return gap, topic
+            return gap, topic
+
+        timer.setTimeout(upload, 3.0)
+
+
 #
 #
 # function mavlinkGenerateMessage(sysId, type, params) {
@@ -278,9 +326,11 @@ def send_aggr_to_Mobius(topic, content_each, gap):
 
 def noti(path_arr, cinObj, socket):
     cin = {}
-    cin['ctname'] = path_arr[len(path_arr)-2]
-    if cinObj['con'] is not None: cin['con'] = cinObj['con']
-    else: cin['con'] = cinObj['content']
+    cin['ctname'] = path_arr[len(path_arr) - 2]
+    if cinObj['con'] is not None:
+        cin['con'] = cinObj['con']
+    else:
+        cin['con'] = cinObj['content']
 
     if cin['con'] == '':
         print('---- is not cin message')
@@ -301,7 +351,7 @@ def gcs_noti_handler(message):
             socket_mav.wrtie(message)
         elif msg_command == 'g':
             if len(com_message) < 5:
-                for i in range(5-len(com_message)):
+                for i in range(5 - len(com_message)):
                     com_msg += ':0'
                 message = bytes(com_msg, 'utf-8')
             socket_mav.write(message)
@@ -343,7 +393,7 @@ async def mavPortOpen():
     global mavPort
 
     print('mavPort open. ' + mavPortNum + ' Data rate: ' + mavBaudrate)
-    sys.setrecursionlimit(10**9)
+    sys.setrecursionlimit(10 ** 9)
     # mavPortData()
     loop = asyncio.get_running_loop()
     with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -370,7 +420,7 @@ mav_ver = 1
 
 byteToHex = []
 
-for n in range(0xff+0x01):
+for n in range(0xff + 0x01):
     hexOctet = str(hex(n))[2:].zfill(2)
     byteToHex.append(hexOctet)
 
@@ -430,8 +480,10 @@ def mavPortData():
             if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
                 mavStrFromDroneLength += mavLength
                 mavPacket = mavStrFromDrone[0:mavLength]
-                # print('mavPacket2: ', bytearray.fromhex(" ".join(mavPacket[i:i+2] for i in range(0, len(mavPacket), 2))))
-                thyme.mqtt_client.publish(http_app.my_cnt_name, bytearray.fromhex(" ".join(mavPacket[i:i+2] for i in range(0, len(mavPacket), 2))))
+                print('mavPacket2: ', mavPacket)
+                thyme.mqtt_client.publish(http_app.my_cnt_name, (
+                    bytearray.fromhex(" ".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2)))), qos=0,
+                                          retain=True)
                 send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
                 parseMavFromDrone(mavPacket)
             else:
@@ -439,6 +491,8 @@ def mavPortData():
         else:
             mavStrFromDrone = mavStrFromDrone[2:]
             # print(mavStrFromDrone)
+    # data = ''
+    mavStrFromDrone = ''
 
     mavPortData()
 
@@ -490,7 +544,6 @@ except:
     with open('./fc_data_model.json', 'w') as f:
         json.dump(fc, f, indent=4)
 
-
 flag_base_mode = 0
 start_arm_time = 0
 cal_flag = 0
@@ -519,10 +572,10 @@ def parseMavFromDrone(mavPacket):
 
         cur_seq = int(mavPacket[4:6], 16)
 
-        if msg_id == common.mavlink['GLOBAL_POSITION_INT']: # 33
+        if msg_id == common.mavlink['GLOBAL_POSITION_INT']:  # 33
             if ver == 'fd':
                 base_offset = 20
-                time_boot_ms = mavPacket[base_offset:base_offset+8].lower()
+                time_boot_ms = mavPacket[base_offset:base_offset + 8].lower()
                 base_offset += 8
                 lat = mavPacket[base_offset:base_offset + 8].lower()
                 base_offset += 8
@@ -551,7 +604,7 @@ def parseMavFromDrone(mavPacket):
             # print(fc['global_position_int'])
             thyme.muv_mqtt_client.publish(http_app.muv_pub_fc_gpi_topic, json.dumps(fc['global_position_int']))
 
-        elif msg_id == common.mavlink['HEARTBEAT']: # 00
+        elif msg_id == common.mavlink['HEARTBEAT']:  # 00
             if ver == 'fd':
                 base_offset = 20
                 custom_mode = mavPacket[base_offset:base_offset + 8].lower()
@@ -594,7 +647,8 @@ def parseMavFromDrone(mavPacket):
                     flag_base_mode += 1
                     http_app.my_sortie_name = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S%f')[:-3]
                     http_app.my_cnt_name = http_app.my_parent_cnt_name + '/' + http_app.my_sortie_name
-                    rsc, res_body, count = http_adn.crtct(http_app.my_parent_cnt_name + '?rcn=0', http_app.my_sortie_name, 0)
+                    rsc, res_body, count = http_adn.crtct(http_app.my_parent_cnt_name + '?rcn=0',
+                                                          http_app.my_sortie_name, 0)
                     cal_flag = 1
                     cal_sortiename = http_app.my_sortie_name
 
