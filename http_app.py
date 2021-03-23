@@ -563,8 +563,10 @@ def fc_on_message(client, userdata, msg):
     global muv_sub_gcs_topic
     global noti_topic
 
+    # hexdata = tas_mav.Hex(msg.payload)
+    # print('origin: ', hexdata)
     message = str(msg.payload.decode("utf-8"))
-    print(message)
+    print('decode: ', message)
 
     if msg.topic == muv_sub_gcs_topic:
         tas_mav.gcs_noti_handler(message)
@@ -615,6 +617,8 @@ def mqtt_connect(serverip):
             # thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
             # thyme.mqtt_client.loop_start()
             # print(thyme.mqtt_client)
+    while True:
+        pass
 
 
 def muv_on_connect(client,userdata,flags, rc):
