@@ -9,6 +9,9 @@ from urllib.parse import urlparse
 import os, sys, shutil, platform, socket, random, time, subprocess, json, uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import threading
+from functools import wraps
+
 import thyme
 import conf
 import noti
@@ -53,6 +56,42 @@ muv_pub_fc_hb_topic = ''
 msw_package = ''
 
 
+def delay(delay=0.):
+    """
+    Decorator delaying the execution of a function for a while.
+    """
+
+    def wrap(f):
+        @wraps(f)
+        def delayed(*args, **kwargs):
+            timer = threading.Timer(delay, f, args=args, kwargs=kwargs)
+            timer.start()
+
+        return delayed
+
+    return wrap
+
+
+class Timer:
+    toClearTimer = False
+
+    def setTimeout(self, fn, time):
+        isInvokationCancelled = False
+
+        @delay(time)
+        def some_fn():
+            if self.toClearTimer is False:
+                fn()
+            else:
+                pass
+
+        some_fn()
+        return isInvokationCancelled
+
+    def setClearTimer(self):
+        self.toClearTimer = True
+
+
 def getType(p):
     type = 'string'
     if (isinstance(p, list)):
@@ -79,15 +118,16 @@ for i in range(0, len(conf.conf['sub'])):
         if urlparse(conf.conf['sub'][i]['nu']).scheme == 'http:':
             HTTP_SUBSCRIPTION_ENABLE = 1
             if urlparse(conf.conf['sub'][i]['nu']).netloc == 'autoset':
-                conf.conf.sub[i]['nu'] = 'http://' + socket.gethostbyname(socket.gethostname()) + ':' + conf.conf['ae']['port'] + urlparse(conf.conf['sub'][i]['nu'])['pathname']
+                conf.conf.sub[i]['nu'] = 'http://' + socket.gethostbyname(socket.gethostname()) + ':' + conf.conf['ae'][
+                    'port'] + urlparse(conf.conf['sub'][i]['nu'])['pathname']
         elif urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt:':
             MQTT_SUBSCRIPTION_ENABLE = 1
         else:
             print('notification uri of subscription is not supported')
 
-
 return_count = 0
 request_count = 0
+
 
 def ready_for_notification():
     global noti_topic
@@ -120,7 +160,8 @@ def git_clone(mission_name, directory_name, repository_url):
     except Exception as e:
         print(e)
 
-    gitClone = subprocess.Popen(['git', 'clone', repository_url, directory_name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    gitClone = subprocess.Popen(['git', 'clone', repository_url, directory_name], stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True)
 
     try:
         stdout, stderr = gitClone.communicate()
@@ -167,7 +208,7 @@ def npm_install(mission_name, directory_name):
             cmd = 'npm'
         print(os.getcwd() + '/' + directory_name)
         npmInstall = subprocess.Popen([cmd, 'install'], stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+                                      stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
         (stdout, stderr) = npmInstall.communicate()
 
@@ -187,7 +228,7 @@ def fork_msw(mission_name, directory_name):
     executable_name = directory_name.replace(mission_name + '_', '')
 
     nodeMsw = subprocess.Popen(['node', executable_name], stdin=my_sortie_name, stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+                               stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
     (stdout, stderr) = nodeMsw.communicate()
 
@@ -295,7 +336,8 @@ def retrieve_my_cnt_name():
     global my_drone_type
     global my_cnt_name
 
-    res, res_body, count = http_adn.rtvct('/Mobius/'+conf.conf['ae']['approval_gcs']+'/approval/'+conf.conf['ae']['name']+'/la', 0)
+    res, res_body, count = http_adn.rtvct(
+        '/Mobius/' + conf.conf['ae']['approval_gcs'] + '/approval/' + conf.conf['ae']['name'] + '/la', 0)
     if res == 2000:
         drone_info = res_body['m2m:cin']['con']
 
@@ -352,7 +394,8 @@ def retrieve_my_cnt_name():
                             if drone_info['mission'][mission_name][chk_cnt][i] is not None:
                                 container_name = drone_info['mission'][mission_name][chk_cnt][i].split(':')[0]
                                 info = {}
-                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info['drone'] + '/' + mission_name
+                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
+                                    'drone'] + '/' + mission_name
                                 info['name'] = container_name
                                 conf.conf['cnt'].append(info)
 
@@ -370,7 +413,9 @@ def retrieve_my_cnt_name():
                                     info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
                                         'drone'] + '/' + mission_name + '/' + container_name
                                     info['name'] = 'sub_msw'
-                                    info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + drone_info['mission'][mission_name][chk_cnt][i].split(':')[1] + '?ct=json'
+                                    info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + \
+                                                 drone_info['mission'][mission_name][chk_cnt][i].split(':')[
+                                                     1] + '?ct=json'
                                     conf.conf['cnt'].append(info)
 
                     chk_cnt = 'sub_container'
@@ -388,7 +433,8 @@ def retrieve_my_cnt_name():
                                 info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
                                     'drone'] + '/' + mission_name + '/' + sub_container_name
                                 info['name'] = sub_container_name
-                                info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + conf.conf['ae']['id'] + '?ct=json'
+                                info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + conf.conf['ae'][
+                                    'id'] + '?ct=json'
                                 conf.conf['cnt'].append(info)
 
                     chk_cnt = 'fc_container'
@@ -397,14 +443,15 @@ def retrieve_my_cnt_name():
                             if drone_info['mission'][mission_name][chk_cnt][i] is not None:
                                 container_name = drone_info['mission'][mission_name][chk_cnt][i]
                                 info = {}
-                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info['drone'] + '/' + mission_name
+                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
+                                    'drone'] + '/' + mission_name
                                 info['name'] = container_name
                                 conf.conf['fc'].append(info)
 
                     chk_cnt = 'git'
                     if drone_info['mission'][mission_name].get(chk_cnt):
                         repo_arr = drone_info['mission'][mission_name][chk_cnt].split('/')
-                        directory_name = mission_name + '_' + repo_arr[len(repo_arr)-1].replace('.git', '')
+                        directory_name = mission_name + '_' + repo_arr[len(repo_arr) - 1].replace('.git', '')
                         try:
                             if os.path.isdir('./' + directory_name):
                                 git_pull(mission_name, directory_name)
@@ -541,7 +588,7 @@ def http_watchdog():
         pass
 
 
-def fc_on_connect(client,userdata,flags, rc):
+def fc_on_connect(client, userdata, flags, rc):
     global muv_sub_gcs_topic
     global noti_topic
     global muv_sub_msw_topic
@@ -591,6 +638,7 @@ def mqtt_connect(serverip):
             thyme.mqtt_client.on_subscribe = fc_on_subscribe
             thyme.mqtt_client.on_message = fc_on_message
             thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
+            thyme.mqtt_client.max_queued_messages_set(0)
             thyme.mqtt_client.loop_start()
             print('fc_mqtt is connected to {}'.format(serverip))
 
@@ -617,7 +665,7 @@ def mqtt_connect(serverip):
             # print(thyme.mqtt_client)
 
 
-def muv_on_connect(client,userdata,flags, rc):
+def muv_on_connect(client, userdata, flags, rc):
     global muv_sub_msw_topic
 
     for idx in range(len(muv_sub_msw_topic)):
@@ -663,4 +711,5 @@ def muv_mqtt_connect(broker_ip, port):
 
 
 def send_to_Mobius(topic, content_each_obj, gap):
-    gap, topic, content_each_obj = http_adn.crtci(topic+'?rcn=0', 0, content_each_obj, None)
+    gap, topic, content_each_obj = http_adn.crtci(topic + '?rcn=0', 0, content_each_obj, None)
+
