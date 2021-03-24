@@ -79,11 +79,12 @@ def tas_ready():
                 # _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 # print('socket connected')
         elif http_app.my_drone_type == 'pixhawk':
-            mavPortNum = '/dev/tty.usbmodem143201'
+            mavPortNum = 'COM6'
             mavBaudrate = '57600'
             mavPortOpening()
     except Exception as e:
         print(e)
+
 
 aggr_content = {}
 
@@ -104,7 +105,7 @@ def send_aggr_to_Mobius(topic, content_each, gap):
 
             return gap, topic
 
-        timer.setTimeout(upload, 3.0)
+        timer.setTimeout(upload, gap)
 
 
 #
@@ -397,10 +398,13 @@ async def mavPortOpen():
     print('mavPort open. ' + mavPortNum + ' Data rate: ' + mavBaudrate)
     sys.setrecursionlimit(10 ** 9)
     # mavPortData()
-    loop = asyncio.get_running_loop()
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-        result = await loop.run_in_executor(
-            pool, mavPortData)
+    # loop = asyncio.get_running_loop()
+    # with concurrent.futures.ThreadPoolExecutor() as pool:
+    #     result = await loop.run_in_executor(
+    #         pool, mavPortData)
+    # timer.setTimeout(mavPortData, 0.25)
+    t = threading.Thread(target=mavPortData, args=(mavPort,))
+    t.start()
 
 
 def mavPortClose():
@@ -443,59 +447,53 @@ mavStrFromDrone = ''
 mavStrFromDroneLength = 0
 
 
-def mavPortData():
-    global mavPort
+def mavPortData(mavPort):
     global mavStrFromDroneLength
     global mavStrFromDrone
 
-    data = mavPort.readline()
-    # print('data: ', data)
+    while True:
+        data = mavPort.readline()
 
-    if mavStrFromDroneLength > 0:
-        mavStrFromDrone = mavStrFromDrone[mavStrFromDroneLength:]
-        mavStrFromDroneLength = 0
+        if mavStrFromDroneLength > 0:
+            mavStrFromDrone = mavStrFromDrone[mavStrFromDroneLength:]
+            mavStrFromDroneLength = 0
 
-    # print(Hex(data))
-    mavStrFromDrone += Hex(data)
-    # print('mavStrFromDrone: ', mavStrFromDrone)
-    while len(mavStrFromDrone) > 12:
-        # print('mavStrFromDrone: ', mavStrFromDrone)
-        stx = mavStrFromDrone[0:2]
-        if stx == 'fe':
+        mavStrFromDrone += Hex(data)
+
+        while len(mavStrFromDrone) > 12:
+            stx = mavStrFromDrone[0:2]
             if stx == 'fe':
-                length = int(mavStrFromDrone[2:4], 16)
-                mavLength = (6 * 2) + (length * 2) + (2 * 2)
-            else:
-                length = int(mavStrFromDrone[2:4], 16)
-                mavLength = (10 * 2) + (length * 2) + (2 * 2)
-            # print('len: ', length)
-            # print('mavLength: ', mavLength)
+                if stx == 'fe':
+                    length = int(mavStrFromDrone[mavStrFromDroneLength + 2:mavStrFromDroneLength + 4], 16)
+                    mavLength = (6 * 2) + (length * 2) + (2 * 2)
+                else:
+                    length = int(mavStrFromDrone[mavStrFromDroneLength + 2:mavStrFromDroneLength + 4], 16)
+                    mavLength = (10 * 2) + (length * 2) + (2 * 2)
 
-            if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
-                mavStrFromDroneLength += mavLength
-                mavPacket = mavStrFromDrone[0:mavLength]
-                # print('mavPacket2: ', mavPacket)
-                # print(http_app.my_cnt_name)
-                thyme.mqtt_client.publish(http_app.my_cnt_name, (
-                # thyme.mqtt_client.publish('/Mobius/KETI_MUV/GCS_Data/Dev_Tool_Test', (
-                        bytearray.fromhex(" ".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2)))), qos=0)
-                send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
-                parseMavFromDrone(mavPacket)
+                if (len(mavStrFromDrone) - mavStrFromDroneLength) > mavLength:
+                    mavPacket = mavStrFromDrone[mavStrFromDroneLength:mavStrFromDroneLength + mavLength]
+                    mavStrFromDroneLength += mavLength
+                    # mavPacket = mavStrFromDrone[0:mavLength]
+                    print('mavPacket: ', mavPacket)
+                    thyme.mqtt_client.publish(http_app.my_cnt_name, (
+                    # thyme.mqtt_client.publish('/Mobius/KETI_MUV/GCS_Data/Dev_Tool_Test', (
+                            bytearray.fromhex(" ".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2)))))
+                    send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1.5)
+                    parseMavFromDrone(mavPacket)
+                else:
+                    break
             else:
-                break
-        else:
-            mavStrFromDrone = mavStrFromDrone[2:]
-            # print(mavStrFromDrone)
-    data = ''
-    mavStrFromDrone = ''
+                mavStrFromDrone = mavStrFromDrone[2:]
+                # print('else-mavStrFromDrone: ', mavStrFromDrone)
 
-    mavPortData()
+        continue
 
 
 fc = {}
 try:
     with open('./fc_data_model.json', 'r') as f:
         fc = json.load(f)
+
 except:
     fc['heartbeat'] = {}
     fc['heartbeat']['type'] = 2
@@ -556,11 +554,11 @@ def parseMavFromDrone(mavPacket):
     try:
         ver = mavPacket[0:2]
         if ver == 'fd':
-            sysid = mavPacket[10:12].lower()
-            msgid = mavPacket[14:20].lower()
+            sysid = mavPacket[10:12]
+            msgid = mavPacket[14:20]
         else:
-            sysid = mavPacket[6:8].lower()
-            msgid = mavPacket[10:12].lower()
+            sysid = mavPacket[6:8]
+            msgid = mavPacket[10:12]
 
         sys_id = int(sysid, 16)
         msg_id = int(msgid, 16)

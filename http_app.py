@@ -602,8 +602,8 @@ def fc_on_connect(client, userdata, flags, rc):
         print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
 
 
-def fc_on_publish(client, userdata, mid):
-    print('mqtt_client published: ' + str(mid) + " ")
+# def fc_on_publish(client, userdata, mid):
+#     print('mqtt_client published: ' + str(mid) + " ")
 
 
 def fc_on_subscribe(client, userdata, mid, granted_qos):
@@ -638,14 +638,16 @@ def mqtt_connect(serverip):
 
     if thyme.mqtt_client is None:
         if conf.conf['usesecure'] == 'disable':
-            thyme.mqtt_client = mqtt.Client()
+            thyme.mqtt_client = mqtt.Client(clean_session=True)
             thyme.mqtt_client.on_connect = fc_on_connect
-            thyme.mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
+            # thyme.mqtt_client.rqpeconnect_delay_set(min_delay=2, max_delay=10)
             thyme.mqtt_client.on_subscribe = fc_on_subscribe
-            thyme.mqtt_client.on_publish = fc_on_publish
+            # thyme.mqtt_client.on_publish = fc_on_publish
             thyme.mqtt_client.on_message = fc_on_message
-            thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
             thyme.mqtt_client.max_queued_messages_set(0)
+            thyme.mqtt_client.max_inflight_messages_set(40)
+            thyme.mqtt_client.message_retry_set(1)
+            thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
             thyme.mqtt_client.loop_start()
             print('fc_mqtt is connected to {}'.format(serverip))
 
