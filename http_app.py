@@ -602,6 +602,10 @@ def fc_on_connect(client, userdata, flags, rc):
         print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
 
 
+def fc_on_publish(client, userdata, mid):
+    print('mqtt_client published: ' + str(mid) + " ")
+
+
 def fc_on_subscribe(client, userdata, mid, granted_qos):
     print("mqtt_client subscribed: " + str(mid) + " " + str(granted_qos))
 
@@ -610,22 +614,22 @@ def fc_on_message(client, userdata, msg):
     global muv_sub_gcs_topic
     global noti_topic
 
-    # hexdata = tas_mav.Hex(msg.payload)
+    hexdata = tas_mav.Hex(msg.payload)
     # print('origin: ', hexdata)
-    message = str(msg.payload.decode("utf-8"))
-    print('decode: ', message)
-
-    if msg.topic == muv_sub_gcs_topic:
-        tas_mav.gcs_noti_handler(message)
-
-    else:
-        if msg.topic.includes('/oneM2M/req/'):
-            jsonObj = json.dumps(message)
-
-            if jsonObj['m2m:rqp'] is None:
-                jsonObj['m2m:rqp'] = jsonObj
-
-            noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
+    # message = str(msg.payload.decode("utf-8"))
+    # print('decode: ', message)
+    #
+    # if msg.topic == muv_sub_gcs_topic:
+    #     tas_mav.gcs_noti_handler(message)
+    #
+    # else:
+    #     if msg.topic.includes('/oneM2M/req/'):
+    #         jsonObj = json.dumps(message)
+    #
+    #         if jsonObj['m2m:rqp'] is None:
+    #             jsonObj['m2m:rqp'] = jsonObj
+    #
+    #         noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
 
 
 def mqtt_connect(serverip):
@@ -638,6 +642,7 @@ def mqtt_connect(serverip):
             thyme.mqtt_client.on_connect = fc_on_connect
             thyme.mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
             thyme.mqtt_client.on_subscribe = fc_on_subscribe
+            thyme.mqtt_client.on_publish = fc_on_publish
             thyme.mqtt_client.on_message = fc_on_message
             thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
             thyme.mqtt_client.max_queued_messages_set(0)
@@ -665,8 +670,6 @@ def mqtt_connect(serverip):
             # thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
             # thyme.mqtt_client.loop_start()
             # print(thyme.mqtt_client)
-    while True:
-        pass
 
 
 def muv_on_connect(client, userdata, flags, rc):
