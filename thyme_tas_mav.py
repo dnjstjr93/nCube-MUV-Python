@@ -5,9 +5,7 @@
 """
 
 import datetime, serial, json, sys
-from multiprocessing import Process
 import asyncio
-import concurrent.futures
 
 import threading
 from functools import wraps
