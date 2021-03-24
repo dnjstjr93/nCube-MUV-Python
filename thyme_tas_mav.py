@@ -8,6 +8,7 @@ import datetime, serial, json, sys
 from multiprocessing import Process
 import asyncio
 import concurrent.futures
+from pymavlink import mavutil
 
 import threading
 from functools import wraps
@@ -54,7 +55,7 @@ class Timer():
             if (self.toClearTimer is False):
                 fn()
             else:
-                print('Invokation is cleared!')
+                pass
 
         some_fn()
         return isInvokationCancelled
@@ -102,7 +103,7 @@ def send_aggr_to_Mobius(topic, content_each, gap):
 
             return gap, topic
 
-        timer.setTimeout(upload, 3.0)
+        timer.setTimeout(upload, (gap/100))
 
 
 #
@@ -374,19 +375,21 @@ def mavPortOpening():
     global mavPortNum
     global mavBaudrate
 
-    # try:
-    if mavPort is None:
-        sys.setrecursionlimit(2000)
-        mavPort = serial.Serial(mavPortNum, int(mavBaudrate))
-        asyncio.run(mavPortOpen())
-    else:
-        if mavPort.isOpen():
-            pass
-        else:
-            mavPort.open()
+    try:
+        if mavPort is None:
+            mavPort = mavutil.mavlink_connection(mavPortNum, int(mavBaudrate))
+            asyncio.run(mavPortOpen())
 
-    # except Exception as e:
-    #     mavPortError(e)
+            # mavPort = serial.Serial(mavPortNum, int(mavBaudrate))
+            # asyncio.run(mavPortOpen())
+        else:
+            if mavPort.isOpen():
+                pass
+            else:
+                mavPort.open()
+
+    except Exception as e:
+        mavPortError(e)
 
 
 async def mavPortOpen():
@@ -441,60 +444,57 @@ mavStrFromDrone = ''
 mavStrFromDroneLength = 0
 
 
-def readData():
-    global mavPort
-
-    data = mavPort.readline()
-
-    return data
-
-
 def mavPortData():
     global mavPort
     global mavStrFromDroneLength
     global mavStrFromDrone
 
-    data = mavPort.readline()
-    # print(data)
 
-    if mavStrFromDroneLength > 0:
-        mavStrFromDrone = mavStrFromDrone[mavStrFromDroneLength:]
-        mavStrFromDroneLength = 0
-
-    # print(Hex(data))
-    mavStrFromDrone += Hex(data)
-    # print(mavStrFromDrone)
-    while len(mavStrFromDrone) > 12:
+    # data = mavPort.readline()
+    while mavPort.port.inWaiting() > 0:
+        data = mavPort.recv()
+        print('data: ', data)
+        thyme.mqtt_client.publish(http_app.my_cnt_name, data, qos=0, retain=True)
+        send_aggr_to_Mobius(http_app.my_cnt_name, data, 1500)
+        parseMavFromDrone(data)
+        # if mavStrFromDroneLength > 0:
+        #     mavStrFromDrone = mavStrFromDrone[mavStrFromDroneLength:]
+        #     mavStrFromDroneLength = 0
+        #
+        # # print(Hex(data))
+        # mavStrFromDrone += Hex(data)
         # print('mavStrFromDrone: ', mavStrFromDrone)
-        stx = mavStrFromDrone[0:2]
-        if stx == 'fe':
-            if stx == 'fe':
-                length = int(mavStrFromDrone[2:4], 16)
-                mavLength = (6 * 2) + (length * 2) + (2 * 2)
-            else:
-                length = int(mavStrFromDrone[2:4], 16)
-                mavLength = (10 * 2) + (length * 2) + (2 * 2)
-            # print('len: ', length)
-            # print('mavLength: ', mavLength)
+        # while len(mavStrFromDrone) > 12:
+        #     # print('mavStrFromDrone: ', mavStrFromDrone)
+        #     stx = mavStrFromDrone[0:2]
+        #     if stx == 'fe':
+        #         if stx == 'fe':
+        #             length = int(mavStrFromDrone[2:4], 16)
+        #             mavLength = (6 * 2) + (length * 2) + (2 * 2)
+        #         else:
+        #             length = int(mavStrFromDrone[2:4], 16)
+        #             mavLength = (10 * 2) + (length * 2) + (2 * 2)
+        #         # print('len: ', length)
+        #         # print('mavLength: ', mavLength)
+        #
+        #         if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
+        #             mavStrFromDroneLength += mavLength
+        #             mavPacket = mavStrFromDrone[0:mavLength]
+        #             print('mavPacket: ', mavPacket)
+        #             thyme.mqtt_client.publish(http_app.my_cnt_name, (
+        #                 bytearray.fromhex(" ".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2)))), qos=0,
+        #                                       retain=True)
+        #             send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
+        #             parseMavFromDrone(mavPacket)
+        #         else:
+        #             break
+        #     else:
+        #         mavStrFromDrone = mavStrFromDrone[2:]
+        #         # print(mavStrFromDrone)
+        # # data = ''
+        # mavStrFromDrone = ''
 
-            if (len(mavStrFromDrone) - mavStrFromDroneLength) >= mavLength:
-                mavStrFromDroneLength += mavLength
-                mavPacket = mavStrFromDrone[0:mavLength]
-                print('mavPacket2: ', mavPacket)
-                thyme.mqtt_client.publish(http_app.my_cnt_name, (
-                    bytearray.fromhex(" ".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2)))), qos=0,
-                                          retain=True)
-                send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1500)
-                parseMavFromDrone(mavPacket)
-            else:
-                break
-        else:
-            mavStrFromDrone = mavStrFromDrone[2:]
-            # print(mavStrFromDrone)
-    # data = ''
-    mavStrFromDrone = ''
-
-    mavPortData()
+        mavPortData()
 
 
 fc = {}
