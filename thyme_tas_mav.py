@@ -77,7 +77,7 @@ def tas_ready():
                 # _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 # print('socket connected')
         elif http_app.my_drone_type == 'pixhawk':
-            mavPortNum = '/dev/ttyAMA0'
+            mavPortNum = 'COM6'
             mavBaudrate = '57600'
             mavPortOpening()
     except Exception as e:
@@ -106,8 +106,6 @@ def send_aggr_to_Mobius(topic, content_each, gap):
         timer.setTimeout(upload, gap)
 
 
-#
-#
 # function mavlinkGenerateMessage(sysId, type, params) {
 #     const mavlinkParser = new MAVLink(null/*logger*/, sysId, 0);
 #     try {
