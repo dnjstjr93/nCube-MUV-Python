@@ -106,8 +106,6 @@ def send_aggr_to_Mobius(topic, content_each, gap):
         timer.setTimeout(upload, gap)
 
 
-#
-#
 # function mavlinkGenerateMessage(sysId, type, params) {
 #     const mavlinkParser = new MAVLink(null/*logger*/, sysId, 0);
 #     try {

@@ -1,4 +1,4 @@
-#-*-coding:utf-8 -*-
+# -*-coding:utf-8 -*-
 
 """
  Created by Wonseok Jung in KETI on 2021-03-16.
@@ -15,19 +15,19 @@ cnt_arr = []
 sub_arr = []
 acp = {}
 
-conf['useprotocol'] = 'http' # select one for 'http' or 'mqtt' or 'coap' or 'ws'
+conf['useprotocol'] = 'http'  # select one for 'http' or 'mqtt' or 'coap' or 'ws'
 
 # build cse
 
-approval_host = {}
+approval_host = dict()
 approval_host['ip'] = '203.253.128.177'
 
-cse['host']        = approval_host['ip']
-cse['port']        = '7579'
-cse['name']        = 'Mobius'
-cse['id']          = '/Mobius2'
-cse['mqttport']    = '1883'
-cse['wsport']      = '7577'
+cse['host'] = approval_host['ip']
+cse['port'] = '7579'
+cse['name'] = 'Mobius'
+cse['id'] = '/Mobius2'
+cse['mqttport'] = '1883'
+cse['wsport'] = '7577'
 
 # build ae
 ae_name = {}
@@ -41,17 +41,16 @@ except:
         json.dump(ae_name, f, indent="\t")
 
 ae['approval_gcs'] = ae_name['approval_gcs']
-ae['name']         = ae_name['flight']
+ae['name'] = ae_name['flight']
 
-ae['id']           = 'S'+ae['name']
+ae['id'] = 'S' + ae['name']
 
-ae['parent']       = '/' + cse['name']
-ae['appid']        = str(uuid.uuid1())
-ae['port']         = '9727'
-ae['bodytype']     = 'json' # select 'json' or 'xml' or 'cbor
+ae['parent'] = '/' + cse['name']
+ae['appid'] = str(uuid.uuid1())
+ae['port'] = '9727'
+ae['bodytype'] = 'json'  # select 'json' or 'xml' or 'cbor
 ae['tas_mav_port'] = '3105'
 ae['tas_sec_port'] = '3105'
-
 
 # build cnt
 count = 0
@@ -63,8 +62,8 @@ count = 0
 # cnt_arr[count]['parent'] = '/' + cse['name'] + '/' + ae['name']
 # count += 1
 # cnt_arr[count]['name'] = 'tvoc'
-#cnt_arr[count] = {}
-#cnt_arr[count]['parent'] = '/' + cse['name'] + '/' + ae['name']
+# cnt_arr[count] = {}
+# cnt_arr[count]['parent'] = '/' + cse['name'] + '/' + ae['name']
 # count += 1
 # cnt_arr[count]['name'] = 'timer'
 
@@ -112,9 +111,9 @@ acp['parent'] = '/' + cse['name'] + '/' + ae['name']
 acp['name'] = 'acp-' + ae['name']
 acp['id'] = ae['id']
 
-conf['usesecure']  = 'disable'
+conf['usesecure'] = 'disable'
 
-if(conf['usesecure'] == 'enable'):
+if conf['usesecure'] == 'enable':
     cse['mqttport'] = '8883'
 
 conf['cse'] = cse
@@ -122,4 +121,3 @@ conf['ae'] = ae
 conf['cnt'] = cnt_arr
 conf['sub'] = sub_arr
 conf['acp'] = acp
-

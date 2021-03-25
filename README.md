@@ -3,14 +3,8 @@ Start Guide
 
 ## Install Dependencies
 ### Install library 
-- on Linux and Raspberry Pi
 ```
 $ pip3 install -r requirements.txt
-```
-
-- on Windows and Mac
-```
-$ pip install -r requirements.txt
 ```
 
 ### Install MQTT-broker
