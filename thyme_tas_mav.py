@@ -471,10 +471,8 @@ def mavPortData(mavPort):
                 if (len(mavStrFromDrone) - mavStrFromDroneLength) > mavLength:
                     mavPacket = mavStrFromDrone[mavStrFromDroneLength:mavStrFromDroneLength + mavLength]
                     mavStrFromDroneLength += mavLength
-                    # mavPacket = mavStrFromDrone[0:mavLength]
-                    print('mavPacket: ', mavPacket)
+
                     thyme.mqtt_client.publish(http_app.my_cnt_name, (
-                    # thyme.mqtt_client.publish('/Mobius/KETI_MUV/GCS_Data/Dev_Tool_Test', (
                             bytearray.fromhex(" ".join(mavPacket[i:i + 2] for i in range(0, len(mavPacket), 2)))))
                     send_aggr_to_Mobius(http_app.my_cnt_name, mavPacket, 1.5)
                     parseMavFromDrone(mavPacket)

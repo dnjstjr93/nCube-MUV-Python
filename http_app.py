@@ -335,6 +335,7 @@ def retrieve_my_cnt_name():
     global muv_sub_msw_topic
     global my_drone_type
     global my_cnt_name
+    global my_parent_cnt_name
 
     res, res_body, count = http_adn.rtvct(
         '/Mobius/' + conf.conf['ae']['approval_gcs'] + '/approval/' + conf.conf['ae']['name'] + '/la', 0)
@@ -632,6 +633,10 @@ def fc_on_message(client, userdata, msg):
     #         noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
 
 
+def fc_on_log (client, userdata, level, buf):
+    print("{} {}".format(level, buf))
+
+
 def mqtt_connect(serverip):
     global muv_sub_gcs_topic
     global noti_topic
@@ -644,11 +649,13 @@ def mqtt_connect(serverip):
             thyme.mqtt_client.on_subscribe = fc_on_subscribe
             # thyme.mqtt_client.on_publish = fc_on_publish
             thyme.mqtt_client.on_message = fc_on_message
+            # thyme.mqtt_client.on_log = fc_on_log
             thyme.mqtt_client.max_queued_messages_set(0)
             thyme.mqtt_client.max_inflight_messages_set(40)
-            thyme.mqtt_client.message_retry_set(1)
+            # thyme.mqtt_client.message_retry_set(1)
             thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
             thyme.mqtt_client.loop_start()
+            # thyme.mqtt_client.loop_forever()
             print('fc_mqtt is connected to {}'.format(serverip))
 
         else:
