@@ -5,7 +5,7 @@
 """
 
 import http.client as request
-import uuid, json
+import uuid, json, ssl
 
 import conf
 
@@ -30,43 +30,42 @@ def http_request(origin, path, method, ty, bodyString):
     elif method == 'PUT':
         headers['Content-Type'] = 'application/vnd.onem2m-res+' + conf.conf['ae']['bodytype']
 
+    jsonObj = {}
+
     try:
         if conf.conf['usesecure'] == 'enable':
-            ca = open('./ca-crt.pem')
-            rejectUnauthorized = False
-
-            http = request.HTTPSConnection(conf.conf['cse']['host'], conf.conf['cse']['port'])
+            # ca = open('./ca-crt.pem')
+            # rejectUnauthorized = False
+            context = ssl.SSLContext().load_verify_locations(cafile='./ca-crt.pem')
+            http = request.HTTPSConnection(conf.conf['cse']['host'], conf.conf['cse']['port'], context=context)
         else:
             http = request.HTTPConnection(conf.conf['cse']['host'], conf.conf['cse']['port'])
-    except Exception as e:
-        print('problem with request')
 
-    jsonObj = {}
-    # print('method: ', method)
-    # print('path: ', path)
-    # print('bodyString: ', bodyString)
-    # print('headers: ', headers)
-    http.request(method, path, bodyString, headers)
-    response = http.getresponse()
-    res_status = response.getheader('x-m2m-rsc')
-    res_body = (response.read()).decode('utf-8')
-    if conf.conf['ae']['bodytype'] == 'xml':
-        pass
-    elif conf.conf['ae']['bodytype'] == 'cbor':
-        pass
-    else:
-        try:
-            if res_body == '':
+        http.request(method, path, bodyString, headers)
+        response = http.getresponse()
+        res_status = response.getheader('x-m2m-rsc')
+        res_body = (response.read()).decode('utf-8')
+        if conf.conf['ae']['bodytype'] == 'xml':
+            pass
+        elif conf.conf['ae']['bodytype'] == 'cbor':
+            pass
+        else:
+            try:
+                if res_body == '':
+                    jsonObj = {}
+                else:
+                    jsonObj = json.loads(res_body)
+
+                return int(res_status), jsonObj
+            except:
                 jsonObj = {}
-            else:
-                jsonObj = json.loads(res_body)
+                jsonObj['dbg'] = res_body
 
-            return int(res_status), jsonObj
-        except:
-            jsonObj = {}
-            jsonObj['dbg'] = res_body
-
-            return 9999, jsonObj
+                return 9999, jsonObj
+    except Exception as e:
+        jsonObj = {}
+        jsonObj['dbg'] = e
+        return 9999, jsonObj
 
 
 def crtae(parent, rn, api):

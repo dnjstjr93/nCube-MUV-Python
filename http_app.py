@@ -7,7 +7,6 @@
 import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
 import os, sys, shutil, platform, socket, random, time, subprocess, json, uuid
-from multiprocessing import Process
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import threading
@@ -95,11 +94,11 @@ class Timer:
 
 def getType(p):
     type = 'string'
-    if (isinstance(p, list)):
+    if isinstance(p, list):
         type = 'list'
-    elif (isinstance(p, str)):
+    elif isinstance(p, str):
         try:
-            if (isinstance(p, dict)):
+            if isinstance(p, dict):
                 type = 'string_dictionary'
             else:
                 type = 'string'
@@ -197,7 +196,7 @@ def git_pull(mission_name, directory_name):
             print('stderr: {}'.format(stdout))
 
     except Exception as e:
-        print('git_pull error: ', sys.exc_info())
+        print('git_pull Error: ', sys.exc_info())
 
 
 def npm_install(mission_name, directory_name):
@@ -207,7 +206,7 @@ def npm_install(mission_name, directory_name):
             cmd = 'npm.cmd'
         else:
             cmd = 'npm'
-        print(os.getcwd() + '/' + directory_name)
+
         npmInstall = subprocess.Popen([cmd, 'install'], stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
@@ -222,7 +221,7 @@ def npm_install(mission_name, directory_name):
             npm_install(mission_name, directory_name)
 
     except Exception as e:
-        print('error')
+        print('npm_install Error', sys.exc_info())
 
 
 def fork_msw(mission_name, directory_name):
@@ -231,25 +230,27 @@ def fork_msw(mission_name, directory_name):
 
     print('Start fork_msw')
 
-    executable_name = directory_name + '/' + mission_name + '.js'
-    dir_name = directory_name
-    drone_info_gcs = drone_info["gcs"]
-    drone_info_drone = drone_info["drone"]
+    try:
+        executable_name = directory_name + '/' + mission_name + '.js'
+        dir_name = directory_name
+        drone_info_gcs = drone_info["gcs"]
+        drone_info_drone = drone_info["drone"]
 
-    nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name, dir_name, drone_info_gcs, drone_info_drone], stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT, text=True)
-    # nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name, dir_name, drone_info_gcs, drone_info_drone], stdout=subprocess.PIPE,
-    #                            stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+        nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name, dir_name, drone_info_gcs, drone_info_drone], stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, text=True)
 
-    (stdout, stderr) = nodeMsw.communicate()
+        (stdout, stderr) = nodeMsw.communicate()
 
-    retcode = nodeMsw.returncode
-    if retcode == 0:
-        print('stdout: {}'.format(stdout))
+        retcode = nodeMsw.returncode
+        if retcode == 0:
+            print('stdout: {}'.format(stdout))
 
-    else:
-        print('stderr: {}'.format(stdout))
-        npm_install(mission_name, directory_name)
+        else:
+            print('stderr: {}'.format(stdout))
+            npm_install(mission_name, directory_name)
+
+    except Exception as e:
+        print('fork_msw Error', sys.exc_info())
 
 
 msw_directory = {}
@@ -265,6 +266,7 @@ def requireMsw(mission_name, directory_name):
     p = threading.Thread(target=fork_msw, args=(mission_name, directory_name,))
     p.start()
     # fork_msw(mission_name, directory_name)
+
 
 def ae_response_action(status, res_body):
     aeid = res_body['m2m:ae']['aei']
@@ -615,10 +617,6 @@ def fc_on_connect(client, userdata, flags, rc):
         print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
 
 
-# def fc_on_publish(client, userdata, mid):
-#     print('mqtt_client published: ' + str(mid) + " ")
-
-
 def fc_on_subscribe(client, userdata, mid, granted_qos):
     print("mqtt_client subscribed: " + str(mid) + " " + str(granted_qos))
 
@@ -627,22 +625,19 @@ def fc_on_message(client, userdata, msg):
     global muv_sub_gcs_topic
     global noti_topic
 
-    hexdata = tas_mav.Hex(msg.payload)
-    # print('origin: ', hexdata)
-    # message = str(msg.payload.decode("utf-8"))
-    # print('decode: ', message)
-    #
-    # if msg.topic == muv_sub_gcs_topic:
-    #     tas_mav.gcs_noti_handler(message)
-    #
-    # else:
-    #     if msg.topic.includes('/oneM2M/req/'):
-    #         jsonObj = json.dumps(message)
-    #
-    #         if jsonObj['m2m:rqp'] is None:
-    #             jsonObj['m2m:rqp'] = jsonObj
-    #
-    #         noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
+    message = tas_mav.Hex(msg.payload)
+
+    if msg.topic == muv_sub_gcs_topic:
+        tas_mav.gcs_noti_handler(bytearray.fromhex(" ".join(message[i:i + 2] for i in range(0, len(message), 2))))
+
+    else:
+        if msg.topic.contains('/oneM2M/req/'):
+            jsonObj = json.loads(message)
+
+            if jsonObj['m2m:rqp'] is None:
+                jsonObj['m2m:rqp'] = jsonObj
+
+            noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
 
 
 def fc_on_log (client, userdata, level, buf):
@@ -659,33 +654,19 @@ def mqtt_connect(serverip):
             thyme.mqtt_client.on_connect = fc_on_connect
             thyme.mqtt_client.on_subscribe = fc_on_subscribe
             thyme.mqtt_client.on_message = fc_on_message
-            thyme.mqtt_client.max_queued_messages_set(0)
-            thyme.mqtt_client.max_inflight_messages_set(40)
             thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
             thyme.mqtt_client.loop_start()
             print('fc_mqtt is connected to {}'.format(serverip))
 
         else:
-            """TBD mqtt secure"""
-            # thyme.mqtt_client = mqtt.Client()
-            # thyme.mqtt_client.on_connect = on_connect
-            # thyme.mqtt_client.reconnect_delay_set(min_delay=2, max_delay=10)
-            # thyme.mqtt_client.on_disconnect = on_disconnect
-            # thyme.mqtt_client.on_subscribe = on_subscribe
-            # thyme.mqtt_client.on_message = on_message
-            # print('fc_mqtt is connected')
-            # if (sub_gcs_topic is not ''):
-            #     print(sub_gcs_topic)
-            #     thyme.mqtt_client.subscribe(sub_gcs_topic, 0)
-            #     print('[mqtt_connect] sub_gcs_topic is subscribed: ' + sub_gcs_topic)
-            #
-            # if (noti_topic is not ''):
-            #     thyme.mqtt_client.subscribe(noti_topic, 0)
-            #     print('[mqtt_connect] noti_topic is subscribed:  ' + noti_topic)
-            # thyme.mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
-            # thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
-            # thyme.mqtt_client.loop_start()
-            # print(thyme.mqtt_client)
+            thyme.mqtt_client = mqtt.Client(clean_session=True)
+            thyme.mqtt_client.on_connect = fc_on_connect
+            thyme.mqtt_client.on_subscribe = fc_on_subscribe
+            thyme.mqtt_client.on_message = fc_on_message
+            thyme.mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
+            thyme.mqtt_client.connect(serverip, int(conf.conf['cse']['mqttport']), keepalive=10)
+            thyme.mqtt_client.loop_start()
+            print('fc_mqtt is connected to {}'.format(serverip))
 
 
 def muv_on_connect(client, userdata, flags, rc):
@@ -723,15 +704,19 @@ def muv_mqtt_connect(broker_ip, port):
             thyme.muv_mqtt_client.on_connect = muv_on_connect
             thyme.muv_mqtt_client.on_subscribe = muv_on_subscribe
             thyme.muv_mqtt_client.on_message = muv_on_message
-            thyme.mqtt_client.max_queued_messages_set(0)
-            thyme.mqtt_client.max_inflight_messages_set(40)
             thyme.muv_mqtt_client.connect(broker_ip, port, keepalive=10)
             thyme.muv_mqtt_client.loop_start()
             print('muv_mqtt_client connected to {}'.format(broker_ip))
 
         else:
-            """TBD mqtt secure"""
-
+            thyme.mqtt_client = mqtt.Client(clean_session=True)
+            thyme.mqtt_client.on_connect = muv_on_connect
+            thyme.mqtt_client.on_subscribe = muv_on_subscribe
+            thyme.mqtt_client.on_message = muv_on_message
+            thyme.mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
+            thyme.muv_mqtt_client.connect(broker_ip, port, keepalive=10)
+            thyme.mqtt_client.loop_start()
+            print('muv_mqtt_client connected to {}'.format(broker_ip))
 
 def send_to_Mobius(topic, content_each_obj, gap):
     http_adn.crtci(topic + '?rcn=0', 0, content_each_obj, None)

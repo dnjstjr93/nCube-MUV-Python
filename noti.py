@@ -5,7 +5,7 @@
 """
 import json
 
-import thyme
+import thyme, conf, http_app
 
 def parse_sgn(rqi, pc):
     if pc['sgn']:
@@ -111,3 +111,21 @@ def mqtt_noti_action(topic_arr, jsonObj):
             pc['sgn'] = pc['m2m:sgn']
             del pc['m2m:sgn']
 
+        path_arr, cinObj, rqi = parse_sgn(rqi, pc)
+        if cinObj:
+            resp_topic = '/oneM2M/resp/' + topic_arr[3] + '/' + topic_arr[4] + '/' + topic_arr[5]
+            response_mqtt(resp_topic, 2001, '', conf.conf["ae"]["id"], rqi, '', topic_arr[5])
+
+            if (cinObj["sud"] or cinObj["vrq"]):
+                pass
+            else:
+                print('mqtt ' + bodytype + ' notification <----')
+                print('mqtt response - 2001 ---->')
+
+                if http_app.getType(cinObj["con"] == 'string'):
+                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[path_arr.length - 1], ''),
+                                            cinObj["con"])
+                else:
+                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[path_arr.length - 1], ''), json.dumps(cinObj["con"]))
+        else:
+            print('[mqtt_noti_action] message is not noti')
