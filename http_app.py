@@ -257,7 +257,7 @@ def requireMsw(mission_name, directory_name):
     msw_directory[require_msw_name] = directory_name
 
     # msw_package = './' + directory_name + '/' + require_msw_name
-    p = Process(target=fork_msw, args=(mission_name, directory_name,))
+    p = threading.Thread(target=fork_msw, args=(mission_name, directory_name,))
     p.start()
     # fork_msw(mission_name, directory_name)
 
