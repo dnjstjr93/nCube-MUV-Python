@@ -226,11 +226,13 @@ def npm_install(mission_name, directory_name):
 
 
 def fork_msw(mission_name, directory_name):
+    global my_sortie_name
+
     print('Start fork_msw')
 
     executable_name = directory_name.replace(mission_name + '_', '')
 
-    nodeMsw = subprocess.Popen(['node', executable_name], stdout=subprocess.PIPE,
+    nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name], stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
     (stdout, stderr) = nodeMsw.communicate()
