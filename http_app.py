@@ -7,6 +7,7 @@
 import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
 import os, sys, shutil, platform, socket, random, time, subprocess, json, uuid
+from multiprocessing import Process
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import threading
@@ -173,7 +174,7 @@ def git_clone(mission_name, directory_name, repository_url):
         else:
             print('stderr: {}'.format(stdout))
     except Exception as e:
-        print("Error: ", sys.exc_info()[0])
+        print("git_clone Error: ", sys.exc_info())
 
 
 def git_pull(mission_name, directory_name):
@@ -196,7 +197,7 @@ def git_pull(mission_name, directory_name):
             print('stderr: {}'.format(stdout))
 
     except Exception as e:
-        print('error')
+        print('git_pull error: ', sys.exc_info())
 
 
 def npm_install(mission_name, directory_name):
@@ -225,9 +226,11 @@ def npm_install(mission_name, directory_name):
 
 
 def fork_msw(mission_name, directory_name):
+    print('Start fork_msw')
+
     executable_name = directory_name.replace(mission_name + '_', '')
 
-    nodeMsw = subprocess.Popen(['node', executable_name], stdin=my_sortie_name, stdout=subprocess.PIPE,
+    nodeMsw = subprocess.Popen(['node', executable_name], stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
     (stdout, stderr) = nodeMsw.communicate()
@@ -251,8 +254,10 @@ def requireMsw(mission_name, directory_name):
     require_msw_name = directory_name.replace(mission_name + '_', '')
     msw_directory[require_msw_name] = directory_name
 
-    msw_package = './' + directory_name + '/' + require_msw_name
-
+    # msw_package = './' + directory_name + '/' + require_msw_name
+    p = Process(target=fork_msw, args=(mission_name, directory_name,))
+    p.start()
+    # fork_msw(mission_name, directory_name)
 
 def ae_response_action(status, res_body):
     aeid = res_body['m2m:ae']['aei']
