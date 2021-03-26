@@ -143,14 +143,14 @@ def ready_for_notification():
             if conf.conf['sub'][i]['name'] is not None:
                 if urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt:':
                     if urlparse(conf.conf['sub'][i]['nu']).netloc == 'autoset':
-                        conf.conf['sub'][i]['nu'] = 'mqtt://' + conf.conf['cse']['host'] + '/' + conf.conf['ae']['id']
+                        conf.conf['sub'][i]['nu'] = 'mqtt://' + conf.conf['cse']["host"] + '/' + conf.conf['ae']['id']
                         noti_topic = '/oneM2M/req/+/{}/#'.format(conf.conf['ae']['id'])
-                    elif urlparse(conf.conf['sub'][i]['nu']).netloc == conf.conf['cse']['host']:
+                    elif urlparse(conf.conf['sub'][i]['nu']).netloc == conf.conf['cse']["host"]:
                         noti_topic = '/oneM2M/req/+/{}/#'.format(conf.conf['ae']['id'])
                     else:
                         noti_topic = '{}'.format(urlparse(conf.conf['sub'][i]['nu']).path)
 
-        mqtt_connect(conf.conf['cse']['host'])
+        mqtt_connect(conf.conf['cse']["host"])
 
         muv_mqtt_connect('localhost', 1883)
 
@@ -227,13 +227,19 @@ def npm_install(mission_name, directory_name):
 
 def fork_msw(mission_name, directory_name):
     global my_sortie_name
+    global drone_info
 
     print('Start fork_msw')
 
-    executable_name = directory_name.replace(mission_name + '_', '')
+    executable_name = directory_name + '/' + mission_name + '.js'
+    dir_name = directory_name
+    drone_info_gcs = drone_info["gcs"]
+    drone_info_drone = drone_info["drone"]
 
-    nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name], stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
+    nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name, dir_name, drone_info_gcs, drone_info_drone], stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True)
+    # nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name, dir_name, drone_info_gcs, drone_info_drone], stdout=subprocess.PIPE,
+    #                            stderr=subprocess.STDOUT, cwd=os.getcwd() + '/' + directory_name, text=True)
 
     (stdout, stderr) = nodeMsw.communicate()
 
@@ -256,7 +262,6 @@ def requireMsw(mission_name, directory_name):
     require_msw_name = directory_name.replace(mission_name + '_', '')
     msw_directory[require_msw_name] = directory_name
 
-    # msw_package = './' + directory_name + '/' + require_msw_name
     p = threading.Thread(target=fork_msw, args=(mission_name, directory_name,))
     p.start()
     # fork_msw(mission_name, directory_name)
@@ -353,24 +358,24 @@ def retrieve_my_cnt_name():
         conf.conf['cnt'] = []
         conf.conf['fc'] = []
 
-        my_gcs_name = drone_info['gcs']
+        my_gcs_name = drone_info["gcs"]
 
-        if drone_info.get('host'):
-            conf.conf['cse']['host'] = drone_info['host']
+        if drone_info.get("host"):
+            conf.conf['cse']["host"] = drone_info["host"]
 
-        print("gcs host is " + conf.conf['cse']['host'])
+        print("gcs host is " + conf.conf['cse']["host"])
 
         info = {}
-        info['parent'] = '/Mobius/' + drone_info['gcs']
+        info['parent'] = '/Mobius/' + drone_info["gcs"]
         info['name'] = 'Drone_Data'
         conf.conf['cnt'].append(info)
 
         info = {}
-        info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Drone_Data'
-        info['name'] = drone_info['drone']
+        info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Drone_Data'
+        info['name'] = drone_info["drone"]
         conf.conf['cnt'].append(info)
 
-        info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Drone_Data/' + drone_info['drone']
+        info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Drone_Data/' + drone_info["drone"]
         info['name'] = my_sortie_name
         conf.conf['cnt'].append(info)
 
@@ -379,20 +384,20 @@ def retrieve_my_cnt_name():
 
         # set container for mission
         info = {}
-        info['parent'] = '/Mobius/' + drone_info['gcs']
+        info['parent'] = '/Mobius/' + drone_info["gcs"]
         info['name'] = 'Mission_Data'
         conf.conf['cnt'].append(info)
 
         info = {}
-        info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data'
-        info['name'] = drone_info['drone']
+        info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data'
+        info['name'] = drone_info["drone"]
         conf.conf['cnt'].append(info)
 
         if drone_info.get('mission'):
             for mission_name in drone_info['mission']:
                 if drone_info['mission'].get(mission_name):
                     info = {}
-                    info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info['drone']
+                    info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data/' + drone_info["drone"]
                     info['name'] = mission_name
                     conf.conf['cnt'].append(info)
 
@@ -402,14 +407,14 @@ def retrieve_my_cnt_name():
                             if drone_info['mission'][mission_name][chk_cnt][i] is not None:
                                 container_name = drone_info['mission'][mission_name][chk_cnt][i].split(':')[0]
                                 info = {}
-                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
-                                    'drone'] + '/' + mission_name
+                                info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data/' + drone_info[
+                                    "drone"] + '/' + mission_name
                                 info['name'] = container_name
                                 conf.conf['cnt'].append(info)
 
                                 info = {}
-                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
-                                    'drone'] + '/' + mission_name + '/' + container_name
+                                info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data/' + drone_info[
+                                    "drone"] + '/' + mission_name + '/' + container_name
                                 info['name'] = my_sortie_name
                                 conf.conf['cnt'].append(info)
                                 mission_parent.append(info['parent'])
@@ -418,10 +423,10 @@ def retrieve_my_cnt_name():
 
                                 if len(drone_info['mission'][mission_name][chk_cnt][i].split(':')) > 1:
                                     info = {}
-                                    info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
-                                        'drone'] + '/' + mission_name + '/' + container_name
+                                    info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data/' + drone_info[
+                                        "drone"] + '/' + mission_name + '/' + container_name
                                     info['name'] = 'sub_msw'
-                                    info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + \
+                                    info['nu'] = 'mqtt://' + drone_info["gcs"]["host"] + '/' + \
                                                  drone_info['mission'][mission_name][chk_cnt][i].split(':')[
                                                      1] + '?ct=json'
                                     conf.conf['cnt'].append(info)
@@ -432,16 +437,16 @@ def retrieve_my_cnt_name():
                             if drone_info['mission'][mission_name][chk_cnt][i] is not None:
                                 sub_container_name = drone_info['mission'][mission_name][chk_cnt][i]
                                 info = {}
-                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
-                                    'drone'] + '/' + mission_name
+                                info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data/' + drone_info[
+                                    "drone"] + '/' + mission_name
                                 info['name'] = sub_container_name
                                 conf.conf['cnt'].append(info)
 
                                 info = {}
-                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
-                                    'drone'] + '/' + mission_name + '/' + sub_container_name
+                                info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data/' + drone_info[
+                                    "drone"] + '/' + mission_name + '/' + sub_container_name
                                 info['name'] = sub_container_name
-                                info['nu'] = 'mqtt://' + drone_info['gcs']['host'] + '/' + conf.conf['ae'][
+                                info['nu'] = 'mqtt://' + drone_info["gcs"]["host"] + '/' + conf.conf['ae'][
                                     'id'] + '?ct=json'
                                 conf.conf['cnt'].append(info)
 
@@ -451,8 +456,8 @@ def retrieve_my_cnt_name():
                             if drone_info['mission'][mission_name][chk_cnt][i] is not None:
                                 container_name = drone_info['mission'][mission_name][chk_cnt][i]
                                 info = {}
-                                info['parent'] = '/Mobius/' + drone_info['gcs'] + '/Mission_Data/' + drone_info[
-                                    'drone'] + '/' + mission_name
+                                info['parent'] = '/Mobius/' + drone_info["gcs"] + '/Mission_Data/' + drone_info[
+                                    "drone"] + '/' + mission_name
                                 info['name'] = container_name
                                 conf.conf['fc'].append(info)
 
@@ -483,10 +488,10 @@ def retrieve_my_cnt_name():
         else:
             my_system_id = 8
 
-        muv_pub_fc_gpi_topic = '/Mobius/' + my_gcs_name + '/Drone_Data/' + drone_info['drone'] + '/global_position_int'
-        muv_pub_fc_hb_topic = '/Mobius/' + my_gcs_name + '/Drone_Data/' + drone_info['drone'] + '/heartbeat'
+        muv_pub_fc_gpi_topic = '/Mobius/' + my_gcs_name + '/Drone_Data/' + drone_info["drone"] + '/global_position_int'
+        muv_pub_fc_hb_topic = '/Mobius/' + my_gcs_name + '/Drone_Data/' + drone_info["drone"] + '/heartbeat'
 
-        muv_sub_gcs_topic = '/Mobius/' + my_gcs_name + '/GCS_Data/' + drone_info['drone']
+        muv_sub_gcs_topic = '/Mobius/' + my_gcs_name + '/GCS_Data/' + drone_info["drone"]
         MQTT_SUBSCRIPTION_ENABLE = 1
         thyme.sh_state = 'crtae'
         http_watchdog()
@@ -696,17 +701,12 @@ def muv_on_subscribe(client, userdata, mid, granted_qos):
 
 
 def muv_on_message(client, userdata, msg):
-    print(msg.payload)
-    print(type(msg.payload))
     message = str(msg.payload.decode("utf-8"))
-    print(message)
-    print(type(message))
 
     try:
         msg_obj = json.loads(message)
         print(msg_obj)
         send_to_Mobius(msg.topic, msg_obj, int(random.random() * 10))
-        # print(topic + ' - ' + JSON.stringify(msg_obj))
 
     except Exception as e:
         msg_obj = message
@@ -734,5 +734,4 @@ def muv_mqtt_connect(broker_ip, port):
 
 
 def send_to_Mobius(topic, content_each_obj, gap):
-    gap, topic, content_each_obj = http_adn.crtci(topic + '?rcn=0', 0, content_each_obj, None)
-
+    http_adn.crtci(topic + '?rcn=0', 0, content_each_obj, None)
