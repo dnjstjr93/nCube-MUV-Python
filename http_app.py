@@ -17,6 +17,7 @@ import conf
 import noti
 import thyme_tas_mav as tas_mav
 import http_adn
+import webrtc
 
 HTTP_SUBSCRIPTION_ENABLE = 0
 MQTT_SUBSCRIPTION_ENABLE = 0
@@ -596,6 +597,7 @@ def http_watchdog():
                 ready_for_notification()
 
                 tas_mav.tas_ready()
+                webrtc.webrtc()
 
                 http_watchdog()
     elif thyme.sh_state == 'crtci':
