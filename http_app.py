@@ -237,8 +237,9 @@ def fork_msw(mission_name, directory_name):
         drone_info_gcs = drone_info["gcs"]
         drone_info_drone = drone_info["drone"]
 
-        nodeMsw = subprocess.Popen(['node', executable_name, my_sortie_name, dir_name, drone_info_gcs, drone_info_drone], stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, text=True)
+        nodeMsw = subprocess.Popen(
+            ['node', executable_name, my_sortie_name, dir_name, drone_info_gcs, drone_info_drone],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
         (stdout, stderr) = nodeMsw.communicate()
 
@@ -642,7 +643,7 @@ def fc_on_message(client, userdata, msg):
             noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
 
 
-def fc_on_log (client, userdata, level, buf):
+def fc_on_log(client, userdata, level, buf):
     print("{} {}".format(level, buf))
 
 
@@ -719,6 +720,7 @@ def muv_mqtt_connect(broker_ip, port):
             thyme.muv_mqtt_client.connect(broker_ip, port, keepalive=10)
             thyme.mqtt_client.loop_start()
             print('muv_mqtt_client connected to {}'.format(broker_ip))
+
 
 def send_to_Mobius(topic, content_each_obj, gap):
     http_adn.crtci(topic + '?rcn=0', 0, content_each_obj, None)
