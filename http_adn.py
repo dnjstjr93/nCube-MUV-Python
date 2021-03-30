@@ -180,11 +180,11 @@ def crtsub(parent, rn, nu, count):
     elif conf.conf['ae']['bodytype'] == 'cbor':
         pass
     else:
-        results_ss['m2m:ae'] = {}
-        results_ss['m2m:ae']['rn'] = rn
-        results_ss['m2m:ae']['enc'] = {"net": [1,2,3,4]}
-        results_ss['m2m:ae']['nu'] = [nu]
-        results_ss['m2m:ae']['nct'] = 2
+        results_ss['m2m:sub'] = {}
+        results_ss['m2m:sub']['rn'] = rn
+        results_ss['m2m:sub']['enc'] = {"net": [1,2,3,4]}
+        results_ss['m2m:sub']['nu'] = [nu]
+        results_ss['m2m:sub']['nct'] = 2
         bodyString = json.dumps(results_ss)
         print(bodyString)
 
