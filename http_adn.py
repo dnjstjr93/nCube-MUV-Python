@@ -160,14 +160,14 @@ def udtct(target, lbl, count):
         bodyString = json.dumps(results_ct)
 
     rsc, res_body = http_request(conf.conf['ae']['id'], target, 'PUT', '', bodyString)
-    print(count + ' - ' + target + ' - x-m2m-rsc : ' + rsc + ' <----')
+    print(str(count) + ' - ' + target + ' - x-m2m-rsc : ' + str(rsc) + ' <----')
 
     return rsc, res_body, count
 
 
 def delct(target, count):
     rsc, res_body = http_request('Superman', target, 'DELETE', '', '')
-    print(count + ' - ' + target + ' - x-m2m-rsc : ' + rsc + ' <----')
+    print(str(count) + ' - ' + target + ' - x-m2m-rsc : ' + str(rsc) + ' <----')
 
     return rsc, res_body, count
 
@@ -188,8 +188,8 @@ def crtsub(parent, rn, nu, count):
         bodyString = json.dumps(results_ss)
         print(bodyString)
 
-    rsc, res_body = http_request(conf.conf.ae.id, parent, 'POST', '23', bodyString)
-    print(count + ' - ' + parent + '/' + rn + ' - x-m2m-rsc : ' + rsc + ' <----')
+    rsc, res_body = http_request(conf.conf["ae"]["id"], parent, 'POST', '23', bodyString)
+    print(str(count) + ' - ' + parent + '/' + rn + ' - x-m2m-rsc : ' + str(rsc) + ' <----')
     print(json.dumps(res_body))
 
     return rsc, res_body, count
@@ -197,7 +197,7 @@ def crtsub(parent, rn, nu, count):
 
 def delsub(target, count):
     rsc, res_body = http_request('Superman', target, 'DELETE', '', '')
-    print(count + ' - ' + target + ' - x-m2m-rsc : ' + rsc + ' <----')
+    print(str(count) + ' - ' + target + ' - x-m2m-rsc : ' + str(rsc) + ' <----')
     print(res_body)
 
     return rsc, res_body, count
