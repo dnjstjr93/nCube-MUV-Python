@@ -123,9 +123,9 @@ def mqtt_noti_action(topic_arr, jsonObj):
                 print('mqtt response - 2001 ---->')
 
                 if http_app.getType(cinObj["con"] == 'string'):
-                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[path_arr.length - 1], ''),
+                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[len(path_arr) - 1], ''),
                                             cinObj["con"])
                 else:
-                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[path_arr.length - 1], ''), json.dumps(cinObj["con"]))
+                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[len(path_arr) - 1], ''), json.dumps(cinObj["con"]))
         else:
             print('[mqtt_noti_action] message is not noti')
