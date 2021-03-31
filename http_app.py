@@ -273,7 +273,7 @@ def requireMsw(mission_name, directory_name):
 def exec_WebRTC():
     try:
         execWebRTC = subprocess.Popen(
-            ['python3', 'webrtc.py'],
+            ['python3', 'webrtc.py', drone_info["drone"]],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
         (stdout, stderr) = execWebRTC.communicate()
