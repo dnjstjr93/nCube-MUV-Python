@@ -1,4 +1,4 @@
-#-*-coding:utf-8 -*-
+# -*-coding:utf-8 -*-
 
 """
  Created by Wonseok Jung in KETI on 2021-03-16.
@@ -6,6 +6,7 @@
 import json
 
 import thyme, conf, http_app
+
 
 def parse_sgn(rqi, pc):
     if pc['sgn']:
@@ -24,35 +25,36 @@ def parse_sgn(rqi, pc):
         if nmtype == 'long':
             print('oneM2M spec. define only short name for resource')
         else:
-            if sgnObj['sur']:
+            if sgnObj.get('sur') is not None:
                 if sgnObj['sur'][0] != '/':
                     sgnObj['sur'] = '/' + sgnObj['sur']
                 path_arr = sgnObj['sur'].split('/')
 
-            if sgnObj['nef']:
-                if sgnObj['nev']['rep']:
-                    if sgnObj['nev']['rep']['m2m:cin']:
+            if sgnObj.get('nev') is not None:
+                if sgnObj['nev'].get('rep') is not None:
+                    if sgnObj['nev']['rep'].get('m2m:cin') is not None:
                         sgnObj['nev']['rep']['cin'] = sgnObj['nef']['rep']['m2m:cin']
                         del sgnObj['nef']['rep']['m2m:cin']
 
-                    if sgnObj['nev']['rep']['cin']:
+                    if sgnObj['nev']['rep'].get('cin') is not None:
                         cinObj = sgnObj['nev']['rep']['cin']
                     else:
                         print('[mqtt_noti_action] m2m:cin is none')
                         cinObj = None
                 else:
-                    print('[mqtt_noti_action] rep tag of m2m:sgn.nev is none. m2m:notification format mismatch with oneM2M spec.')
+                    print(
+                        '[mqtt_noti_action] rep tag of m2m:sgn.nev is none. m2m:notification format mismatch with '
+                        'oneM2M spec.')
                     cinObj = None
-            elif sgnObj['sud']:
+            elif sgnObj.get('sud') is not None:
                 print('[mqtt_noti_action] received notification of verification')
-                cinObj = {}
-                cinObj['sud'] = sgnObj['sud']
-            elif sgnObj['vrq']:
+                cinObj = {'sud': sgnObj['sud']}
+            elif sgnObj.get('vrq') is not None:
                 print('[mqtt_noti_action] received notification of verification')
-                cinObj = {}
-                cinObj['vrq'] = sgnObj['vrq']
+                cinObj = {'vrq': sgnObj['vrq']}
             else:
-                print('[mqtt_noti_action] nev tag of m2m:sgn is none. m2m:notification format mismatch with oneM2M spec.')
+                print(
+                    '[mqtt_noti_action] nev tag of m2m:sgn is none. m2m:notification format mismatch with oneM2M spec.')
                 cinObj = None
     else:
         print('[mqtt_noti_action] m2m:sgn tag is none. m2m:notification format mismatch with oneM2M spec.')
@@ -74,7 +76,7 @@ def response_mqtt(rsp_topic, rsc, to, fr, rqi, inpc, bodytype):
         pass
     elif bodytype == 'cbor':
         pass
-    else: # json
+    else:  # json
         thyme.mqtt_client.publish(rsp_topic, json.loads(rsp_message['m2m:rsp']))
 
 
@@ -87,24 +89,24 @@ def mqtt_noti_action(topic_arr, jsonObj):
         if jsonObj['m2m:rqp']['op'] is None:
             op = ''
         else:
-            op = jsonObj['m2mrqp']['op']
+            op = jsonObj['m2m:rqp']['op']
         if jsonObj['m2m:rqp']['to'] is None:
             to = ''
         else:
-            to = jsonObj['m2mrqp']['to']
+            to = jsonObj['m2m:rqp']['to']
         if jsonObj['m2m:rqp']['fr'] is None:
             fr = ''
         else:
-            fr = jsonObj['m2mrqp']['fr']
+            fr = jsonObj['m2m:rqp']['fr']
         if jsonObj['m2m:rqp']['rqi'] is None:
             rqi = ''
         else:
-            rqi = jsonObj['m2mrqp']['rqi']
+            rqi = jsonObj['m2m:rqp']['rqi']
         pc = {}
         if jsonObj['m2m:rqp']['pc'] is None:
             pc = {}
         else:
-            jsonObj['m2m:rqp']['pc']
+            pc = jsonObj['m2m:rqp']['pc']
 
         if pc['m2m:sgn']:
             pc['sgn'] = {}
@@ -123,9 +125,10 @@ def mqtt_noti_action(topic_arr, jsonObj):
                 print('mqtt response - 2001 ---->')
 
                 if http_app.getType(cinObj["con"] == 'string'):
-                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[path_arr.length - 1], ''),
-                                            cinObj["con"])
+                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[len(path_arr) - 1], ''),
+                                                  cinObj["con"])
                 else:
-                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[path_arr.length - 1], ''), json.dumps(cinObj["con"]))
+                    thyme.muv_mqtt_client.publish(path_arr.join('/').replace('/' + path_arr[len(path_arr) - 1], ''),
+                                                  json.dumps(cinObj["con"]))
         else:
             print('[mqtt_noti_action] message is not noti')
