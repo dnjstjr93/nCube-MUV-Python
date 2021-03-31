@@ -6,6 +6,7 @@
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
 import time, sys
 
 
@@ -32,17 +33,18 @@ def control_web(driver):
     button_id = driver.find_element_by_id('start')
     button_id.click()
 
-    time.sleep(2)
+    driver.implicitly_wait(5)
 
     username_id = driver.find_element_by_id('username')
     username_id.send_keys(display_name)
+    username_id.send_keys(Keys.RETURN)
 
     register_id = driver.find_element_by_id('register')
     register_id.click()
 
 
 if __name__ == '__main__':
-    display_name = sys.argv[2]
+    display_name = sys.argv[1]
     display_name
     if display_name.isalnum():
         pass
