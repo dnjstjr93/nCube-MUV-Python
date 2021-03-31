@@ -10,11 +10,12 @@ import time, json
 
 import http_app
 
-try:
-    with open('./flight.json', 'r') as f:
-        drone_name = json.load(f)
-except:
-    drone_name = 'Dione'
+display_name = http_app.drone_info["drone"]
+if display_name.isalnum():
+    pass
+else:
+    display_name = ''.join(char for char in display_name if char.isalnum())
+print(display_name)
 
 opt = Options()
 opt.add_argument("--disable-infobars")
@@ -38,7 +39,7 @@ button_id.click()
 time.sleep(2)
 
 username_id = driver.find_element_by_id('username')
-username_id.send_keys(drone_name)
+username_id.send_keys(display_name)
 
 register_id = driver.find_element_by_id('register')
 register_id.click()
