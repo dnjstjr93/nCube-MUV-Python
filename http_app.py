@@ -270,6 +270,25 @@ def requireMsw(mission_name, directory_name):
     # fork_msw(mission_name, directory_name)
 
 
+def exec_WebRTC():
+    try:
+        execWebRTC = subprocess.Popen(
+            ['python3', 'webrtc.py'],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+        (stdout, stderr) = execWebRTC.communicate()
+
+        retcode = execWebRTC.returncode
+        if retcode == 0:
+            print('stdout: {}'.format(stdout))
+
+        else:
+            print('stderr: {}'.format(stdout))
+
+    except Exception as e:
+        print('exec_WebRTC Error', sys.exc_info())
+
+
 def ae_response_action(status, res_body):
     aeid = res_body['m2m:ae']['aei']
     conf.conf['ae']['id'] = aeid
@@ -598,7 +617,8 @@ def http_watchdog():
                 ready_for_notification()
 
                 tas_mav.tas_ready()
-                webrtc.webrtc()
+                exec_WebRTC()
+                # webrtc.webrtc()
 
                 http_watchdog()
     elif thyme.sh_state == 'crtci':
