@@ -6,44 +6,50 @@
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-import time, json
+import time, sys
 
-import http_app
 
-display_name = http_app.drone_info["drone"]
-if display_name.isalnum():
-    pass
-else:
-    display_name = ''.join(char for char in display_name if char.isalnum())
-print(display_name)
+def openWeb():
+    opt = Options()
+    opt.add_argument("--disable-infobars")
+    opt.add_argument("start-maximized")
+    opt.add_argument("--disable-extensions")
+    # Pass the argument 1 to allow and 2 to block
+    opt.add_experimental_option("prefs", { \
+        "profile.default_content_setting_values.media_stream_mic": 1,
+        "profile.default_content_setting_values.media_stream_camera": 1,
+        "profile.default_content_setting_values.geolocation": 1,
+        "profile.default_content_setting_values.notifications": 1
+    })
 
-opt = Options()
-opt.add_argument("--disable-infobars")
-opt.add_argument("start-maximized")
-opt.add_argument("--disable-extensions")
-# Pass the argument 1 to allow and 2 to block
-opt.add_experimental_option("prefs", { \
-    "profile.default_content_setting_values.media_stream_mic": 1,
-    "profile.default_content_setting_values.media_stream_camera": 1,
-    "profile.default_content_setting_values.geolocation": 1,
-    "profile.default_content_setting_values.notifications": 1
-  })
+    driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/lib/chromium-browser/chromedriver')
+    # driver.get("http://www.google.com")
+    driver.get("https://203.253.128.177/videoroomtest.html")
+    control_web(driver)
 
-driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/lib/chromium-browser/chromedriver')
-#driver.get("http://www.google.com")
-driver.get("https://203.253.128.177/videoroomtest.html")
 
-button_id = driver.find_element_by_id('start')
-button_id.click()
+def control_web(driver):
+    button_id = driver.find_element_by_id('start')
+    button_id.click()
 
-time.sleep(2)
+    time.sleep(2)
 
-username_id = driver.find_element_by_id('username')
-username_id.send_keys(display_name)
+    username_id = driver.find_element_by_id('username')
+    username_id.send_keys(display_name)
 
-register_id = driver.find_element_by_id('register')
-register_id.click()
+    register_id = driver.find_element_by_id('register')
+    register_id.click()
 
+
+if __name__ == '__main__':
+    display_name = sys.argv[2]
+    display_name
+    if display_name.isalnum():
+        pass
+    else:
+        display_name = ''.join(char for char in display_name if char.isalnum())
+    print(display_name)
+    openWeb()
 
 
 """
