@@ -7,7 +7,8 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
-import time, sys
+
+import http_app
 
 
 def openWeb():
@@ -30,6 +31,8 @@ def openWeb():
 
 
 def control_web(driver):
+    global display_name
+
     button_id = driver.find_element_by_id('start')
     button_id.click()
 
@@ -43,14 +46,15 @@ def control_web(driver):
     register_id.click()
 
 
-if __name__ == '__main__':
-    display_name = sys.argv[1]
+def webrtc():
+    global display_name
+
+    display_name = http_app.drone_info["drone"]
     display_name
     if display_name.isalnum():
         pass
     else:
         display_name = ''.join(char for char in display_name if char.isalnum())
-    print(display_name)
     openWeb()
 
 
