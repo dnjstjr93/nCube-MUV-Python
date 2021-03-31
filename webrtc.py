@@ -4,6 +4,48 @@
  Created by Wonseok Jung in KETI on 2021-03-16.
 """
 
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import time, json
+
+import http_app
+
+try:
+    with open('./flight.json', 'r') as f:
+        drone_name = json.load(f)
+except:
+    drone_name = 'Dione'
+
+opt = Options()
+opt.add_argument("--disable-infobars")
+opt.add_argument("start-maximized")
+opt.add_argument("--disable-extensions")
+# Pass the argument 1 to allow and 2 to block
+opt.add_experimental_option("prefs", { \
+    "profile.default_content_setting_values.media_stream_mic": 1,
+    "profile.default_content_setting_values.media_stream_camera": 1,
+    "profile.default_content_setting_values.geolocation": 1,
+    "profile.default_content_setting_values.notifications": 1
+  })
+
+driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/lib/chromium-browser/chromedriver')
+#driver.get("http://www.google.com")
+driver.get("https://203.253.128.177/videoroomtest.html")
+
+button_id = driver.find_element_by_id('start')
+button_id.click()
+
+time.sleep(2)
+
+username_id = driver.find_element_by_id('username')
+username_id.send_keys(drone_name)
+
+register_id = driver.find_element_by_id('register')
+register_id.click()
+
+
+
+"""
 # from PyQt5.QtWidgets import QApplication
 # from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
 # from PyQt5.QtCore import QUrl
@@ -122,4 +164,4 @@ def webrtc():
     t.start()
     view.show()
     app.exec_()
-
+"""
