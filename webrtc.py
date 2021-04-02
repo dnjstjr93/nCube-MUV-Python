@@ -10,6 +10,8 @@ from selenium.webdriver.common.keys import Keys
 
 import http_app
 
+import time
+
 
 def openWeb():
     opt = Options()
@@ -27,6 +29,7 @@ def openWeb():
     driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/lib/chromium-browser/chromedriver')
     # driver.get("http://www.google.com")
     driver.get("https://203.253.128.177/videoroomtest.html")
+    time.sleep(10)
     control_web(driver)
 
 
@@ -42,8 +45,8 @@ def control_web(driver):
     username_id.send_keys(display_name)
     username_id.send_keys(Keys.RETURN)
 
-    register_id = driver.find_element_by_id('register')
-    register_id.click()
+    # register_id = driver.find_element_by_id('register')
+    # register_id.click()
 
 
 def webrtc():
