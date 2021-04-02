@@ -10,7 +10,9 @@ from selenium.webdriver.common.keys import Keys
 
 import http_app
 
-import time
+import time, sys
+
+display_name = ''
 
 
 def openWeb():
@@ -18,18 +20,25 @@ def openWeb():
     opt.add_argument("--disable-infobars")
     opt.add_argument("start-maximized")
     opt.add_argument("--disable-extensions")
-    # Pass the argument 1 to allow and 2 to block
-    opt.add_experimental_option("prefs", { \
+    opt.add_argument('--ignore-certificate-errors')
+    opt.add_argument('--ignore-ssl-errors')
+
+    opt.add_experimental_option("prefs", {
         "profile.default_content_setting_values.media_stream_mic": 1,
-        "profile.default_content_setting_values.media_stream_camera": 1,
-        "profile.default_content_setting_values.geolocation": 1,
-        "profile.default_content_setting_values.notifications": 1
+        "profile.default_content_setting_values.media_stream_camera": 1
     })
 
-    driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/lib/chromium-browser/chromedriver')
-    # driver.get("http://www.google.com")
+    if sys.platform.startswith('win'):  # Windows
+        driver = webdriver.Chrome(chrome_options=opt, executable_path='chromedriver')
+    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):  # Linux and Raspbian
+        driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/lib/chromium-browser/chromedriver')
+    elif sys.platform.startswith('darwin'):  # MacOS
+        driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/local/bin/chromedriver')
+    else:
+        raise EnvironmentError('Unsupported platform')
+
     driver.get("https://203.253.128.177/videoroomtest.html")
-    time.sleep(10)
+    time.sleep(5)
     control_web(driver)
 
 
@@ -47,13 +56,15 @@ def control_web(driver):
 
     # register_id = driver.find_element_by_id('register')
     # register_id.click()
+    while True:
+        pass
 
 
 def webrtc():
     global display_name
 
     display_name = http_app.drone_info["drone"]
-    # display_name
+
     if display_name.isalnum():
         pass
     else:
