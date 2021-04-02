@@ -53,7 +53,7 @@ def webrtc():
     global display_name
 
     display_name = http_app.drone_info["drone"]
-    display_name
+    # display_name
     if display_name.isalnum():
         pass
     else:
