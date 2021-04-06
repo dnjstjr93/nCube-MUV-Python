@@ -50,9 +50,9 @@ def openWeb():
     if sys.platform.startswith('win'):  # Windows
         driver = webdriver.Chrome(chrome_options=opt, desired_capabilities=capabilities, executable_path='chromedriver')
     elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):  # Linux and Raspbian
-        driver = webdriver.Chrome(chrome_options=opt,  executable_path='/usr/lib/chromium-browser/chromedriver')
+        driver = webdriver.Chrome(chrome_options=opt, desired_capabilities=capabilities, executable_path='/usr/lib/chromium-browser/chromedriver')
     elif sys.platform.startswith('darwin'):  # MacOS
-        driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/local/bin/chromedriver')
+        driver = webdriver.Chrome(chrome_options=opt, desired_capabilities=capabilities, executable_path='/usr/local/bin/chromedriver')
     else:
         raise EnvironmentError('Unsupported platform')
 
