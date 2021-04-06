@@ -7,12 +7,23 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 import http_app
 
-import time, sys
+import time, sys, requests, json, uuid, random, string
 
 display_name = ''
+session_id = ''
+handle_id = ''
+
+
+def rand_var():
+    rand_str = ''
+    for i in range(12):
+        rand_str += str(random.choice(string.ascii_letters + string.digits))
+
+    return rand_str
 
 
 def openWeb():
@@ -28,10 +39,13 @@ def openWeb():
         "profile.default_content_setting_values.media_stream_camera": 1
     })
 
+    capabilities = DesiredCapabilities.CHROME
+    capabilities['goog:loggingPrefs'] = {'browser': 'ALL'}
+
     if sys.platform.startswith('win'):  # Windows
-        driver = webdriver.Chrome(chrome_options=opt, executable_path='chromedriver')
+        driver = webdriver.Chrome(chrome_options=opt, desired_capabilities=capabilities, executable_path='chromedriver')
     elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):  # Linux and Raspbian
-        driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/lib/chromium-browser/chromedriver')
+        driver = webdriver.Chrome(chrome_options=opt,  executable_path='/usr/lib/chromium-browser/chromedriver')
     elif sys.platform.startswith('darwin'):  # MacOS
         driver = webdriver.Chrome(chrome_options=opt, executable_path='/usr/local/bin/chromedriver')
     else:
@@ -44,9 +58,25 @@ def openWeb():
 
 def control_web(driver):
     global display_name
+    global session_id
+    global handle_id
 
     button_id = driver.find_element_by_id('start')
     button_id.click()
+
+    time.sleep(1)
+
+    for entry in driver.get_log('browser'):
+        level = entry['level']
+        if level == 'INFO':
+            log_t = entry['message'].split(' ')
+            if log_t[3] == 'session:':
+                session_id = log_t[4][:-1]
+            elif log_t[3] == 'handle:':
+                handle_id = log_t[4][:-1]
+
+    room_number = http_app.drone_info["room"]
+    rsc, res_body = crt_room(session_id, handle_id, room_number)
 
     driver.implicitly_wait(5)
 
@@ -60,10 +90,48 @@ def control_web(driver):
         pass
 
 
+def crt_room(session_id, handle_id, room_number):
+    # global session_id
+    # global handle_id
+
+    url = "http://" + http_app.drone_info["host"] + ":8088/janus"
+    # url = "http://203.253.128.177:8088/janus"
+
+    payload = json.dumps({
+        "janus": "message",
+        "transaction": rand_var(),
+        "session_id": int(session_id),
+        "handle_id": int(handle_id),
+        "body": {
+            "request": "create",
+            "room": int(room_number),
+            "publishers": 6,
+            "description": "drone",
+            "secret": "keti",
+            "is_private": False,
+            "bitrate": 512000,
+            "fir_freq": 10,
+            "videocodec": "vp9",
+            "video_svc": True
+        }
+    })
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload)
+    rsc = response.json()['plugindata']['data']['error_code']
+    res_body = response.json()['plugindata']['data']['error']
+    print('WebRTC --> [rsc:' + str(rsc) + '] ' + res_body)
+
+    return rsc, res_body
+
+
 def webrtc():
     global display_name
 
-    display_name = http_app.drone_info["drone"]
+    # display_name = http_app.drone_info["drone"]
+    display_name = 'test'
 
     if display_name.isalnum():
         pass
