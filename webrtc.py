@@ -97,8 +97,9 @@ def control_web(driver):
     # register_id = driver.find_element_by_id('register')
     # register_id.click()
     while True:
-        time.sleep(10)
-        get_participants()
+        pass
+        # time.sleep(10)
+        # get_participants()
 
 
 def crt_room(session_id, handle_id, room_number):
