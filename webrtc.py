@@ -8,6 +8,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 import http_app
 
@@ -16,6 +19,8 @@ import time, sys, requests, json, uuid, random, string
 display_name = ''
 session_id = ''
 handle_id = ''
+room_number = ''
+count = 0
 
 
 def rand_var():
@@ -52,7 +57,10 @@ def openWeb():
         raise EnvironmentError('Unsupported platform')
 
     driver.get("https://203.253.128.177/videoroomtest.html")
-    time.sleep(5)
+
+    wait = WebDriverWait(driver, 10)
+    element = wait.until(EC.element_to_be_clickable((By.ID, 'start')))
+    # time.sleep(5)
     control_web(driver)
 
 
@@ -60,6 +68,8 @@ def control_web(driver):
     global display_name
     global session_id
     global handle_id
+    global room_number
+    global flag
 
     button_id = driver.find_element_by_id('start')
     button_id.click()
@@ -87,7 +97,8 @@ def control_web(driver):
     # register_id = driver.find_element_by_id('register')
     # register_id.click()
     while True:
-        pass
+        time.sleep(10)
+        get_participants()
 
 
 def crt_room(session_id, handle_id, room_number):
@@ -95,7 +106,6 @@ def crt_room(session_id, handle_id, room_number):
     # global handle_id
 
     url = "http://" + http_app.drone_info["host"] + ":8088/janus"
-    # url = "http://203.253.128.177:8088/janus"
 
     payload = json.dumps({
         "janus": "message",
@@ -120,18 +130,108 @@ def crt_room(session_id, handle_id, room_number):
     }
 
     response = requests.request("POST", url, headers=headers, data=payload)
-    rsc = response.json()['plugindata']['data']['error_code']
-    res_body = response.json()['plugindata']['data']['error']
-    print('WebRTC --> [rsc:' + str(rsc) + '] ' + res_body)
+    try:
+        rsc = response.json()['plugindata']['data']['error_code']
+        res_body = response.json()['plugindata']['data']['error']
+        print('WebRTC --> [rsc:' + str(rsc) + '] ' + res_body)
+        with open("webrtc_log.txt", "w") as f:
+            f.write("Error in crt_room(): " + 'WebRTC --> [rsc:' + str(rsc) + '] ' + res_body)
 
-    return rsc, res_body
+        return rsc, res_body
+    except:
+        rsc = 201
+        res_body = 'success create [ {} ] room'.format(room_number)
+        print('WebRTC --> [' + str(rsc) + '] ' + res_body)
+
+        return rsc, res_body
+
+
+def destroy_room():
+    global session_id
+    global handle_id
+    global room_number
+
+    url = "http://" + http_app.drone_info["host"] + ":8088/janus"
+
+    payload = json.dumps({
+        "janus": "message",
+        "transaction": "9qLWxeUm2XqH",
+        "session_id": int(session_id),
+        "handle_id": int(handle_id),
+        "body": {
+            "request": "destroy",
+            "room": int(room_number),
+            "secret": "keti"
+        }
+    })
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload)
+    try:
+        rsc = response.json()['plugindata']['data']['error_code']
+        res_body = response.json()['plugindata']['data']['error']
+        print('WebRTC --> [rsc:' + str(rsc) + '] ' + res_body)
+        if rsc == 427:
+            pass
+        else:
+            with open("webrtc_log.txt", "w") as f:
+                f.write("Error in destroy_room(): " + 'WebRTC --> [rsc:' + str(rsc) + '] ' + res_body)
+        return rsc, res_body
+    except Exception as e:
+        rsc = 201
+        res_body = 'success create [ {} ] room'.format(room_number)
+        print('WebRTC --> [' + str(rsc) + '] ' + res_body)
+
+        return rsc, res_body
+
+
+def get_participants():
+    global session_id
+    global handle_id
+    global room_number
+    global count
+
+    url = "http://" + http_app.drone_info["host"] + ":8088/janus"
+
+    payload = json.dumps({
+        "janus": "message",
+        "transaction": "Ik7z2RcMbxgO",
+        "session_id": int(session_id),
+        "handle_id": int(handle_id),
+        "body": {
+            "request": "listparticipants",
+            "room": int(room_number)
+        }
+    })
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload)
+    try:
+        res = response.json()['plugindata']['data']
+        if res.get('participants'):
+            num_participants = len(res['participants'])
+            if num_participants < 1:
+                count += 1
+                if count > 3:
+                    with open("webrtc_log.txt", "w") as f:
+                        f.write("Error in get_participants(): No users have joined the room.")
+        else:
+            print('Destroy Room [ {} ]'.format(room_number))
+            destroy_room()
+    except:
+        with open("webrtc_log.txt", "w") as f:
+            f.write("Error in get_participants(): except")
+        pass
 
 
 def webrtc():
     global display_name
 
-    # display_name = http_app.drone_info["drone"]
-    display_name = 'test'
+    display_name = http_app.drone_info["drone"]
 
     if display_name.isalnum():
         pass
