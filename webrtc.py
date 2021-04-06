@@ -90,6 +90,9 @@ def control_web(driver):
 
     driver.implicitly_wait(5)
 
+    Room_Number = driver.find_element_by_id('roomnumber')
+    Room_Number.send_keys(room_number)
+
     username_id = driver.find_element_by_id('username')
     username_id.send_keys(display_name)
     username_id.send_keys(Keys.RETURN)
