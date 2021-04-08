@@ -600,7 +600,8 @@ def http_watchdog():
                 ready_for_notification()
 
                 tas_mav.tas_ready()
-                webrtc.webrtc()
+                if drone_info["webrtc"] == "enable":
+                    webrtc.webrtc()
 
                 http_watchdog()
     elif thyme.sh_state == 'crtci':
