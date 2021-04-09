@@ -38,5 +38,5 @@ Move the downloaded ChromeDriver to the nCube-MUV-python folder.
 
     python3 thyme.py
 
-    # If you check the 4004 status code after execution, modify the flight.json file with the contents 
+    # If you occurs the 4004 status code after execution, modify the flight.json file with the contents 
     of 'approval' and rerun.
