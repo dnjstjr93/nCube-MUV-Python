@@ -116,12 +116,12 @@ def getType(p):
 # ready for mqtt
 for i in range(0, len(conf.conf['sub'])):
     if conf.conf['sub'][i]['name'] is not None:
-        if urlparse(conf.conf['sub'][i]['nu']).scheme == 'http:':
+        if urlparse(conf.conf['sub'][i]['nu']).scheme == 'http':
             HTTP_SUBSCRIPTION_ENABLE = 1
             if urlparse(conf.conf['sub'][i]['nu']).netloc == 'autoset':
                 conf.conf.sub[i]['nu'] = 'http://' + socket.gethostbyname(socket.gethostname()) + ':' + conf.conf['ae'][
                     'port'] + urlparse(conf.conf['sub'][i]['nu'])['pathname']
-        elif urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt:':
+        elif urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt':
             MQTT_SUBSCRIPTION_ENABLE = 1
         else:
             print('notification uri of subscription is not supported')
@@ -132,7 +132,6 @@ request_count = 0
 
 def ready_for_notification():
     global noti_topic
-
     if HTTP_SUBSCRIPTION_ENABLE == 1:
         server = HTTPServer(('0.0.0.0', int(conf.conf['ae']['port'])), BaseHTTPRequestHandler)
         print('http_server running at {} port'.format(conf.conf['ae']['port']))
@@ -141,7 +140,8 @@ def ready_for_notification():
     if MQTT_SUBSCRIPTION_ENABLE == 1:
         for i in range(0, len(conf.conf['sub'])):
             if conf.conf['sub'][i]['name'] is not None:
-                if urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt:':
+                print(urlparse(conf.conf['sub'][i]['nu']).scheme, '==============================')
+                if urlparse(conf.conf['sub'][i]['nu']).scheme == 'mqtt':
                     if urlparse(conf.conf['sub'][i]['nu']).netloc == 'autoset':
                         conf.conf['sub'][i]['nu'] = 'mqtt://' + conf.conf['cse']["host"] + '/' + conf.conf['ae']['id']
                         noti_topic = '/oneM2M/req/+/{}/#'.format(conf.conf['ae']['id'])
@@ -303,7 +303,7 @@ def delete_sub_all(count):
     if len(conf.conf['sub']) == 0:
         return 2001, count
     else:
-        if conf.conf['sub'].get(count):
+        if len(conf.conf['sub']) > count:
             target = conf.conf['sub'][count]['parent'] + '/' + conf.conf['sub'][count]['name']
             rsc, res_body, count = http_adn.delsub(target, count)
             if rsc == 5106 or rsc == 2002 or rsc == 2000 or rsc == 4105 or rsc == 4004:
@@ -320,7 +320,7 @@ def create_sub_all(count):
     if len(conf.conf['sub']) == 0:
         return 2001, count
     else:
-        if conf.conf['sub'].get(count):
+        if len(conf.conf['sub']) > count:
             parent = conf.conf['sub'][count]['parent']
             rn = conf.conf['sub'][count]['name']
             nu = conf.conf['sub'][count]['nu']
@@ -434,7 +434,7 @@ def retrieve_my_cnt_name():
                                     info['nu'] = 'mqtt://' + conf.conf["cse"]["host"] + '/' + \
                                                  drone_info['mission'][mission_name][chk_cnt][i].split(':')[
                                                      1] + '?ct=json'
-                                    conf.conf['cnt'].append(info)
+                                    conf.conf['sub'].append(info)
 
                     chk_cnt = 'sub_container'
                     if drone_info['mission'][mission_name].get(chk_cnt):
@@ -611,7 +611,6 @@ def http_watchdog():
 def fc_on_connect(client, userdata, flags, rc):
     global muv_sub_gcs_topic
     global noti_topic
-    global muv_sub_msw_topic
 
     if muv_sub_gcs_topic != '':
         thyme.mqtt_client.subscribe(muv_sub_gcs_topic, 0)
@@ -630,16 +629,15 @@ def fc_on_message(client, userdata, msg):
     global muv_sub_gcs_topic
     global noti_topic
 
-    message = tas_mav.Hex(msg.payload)
-
     if msg.topic == muv_sub_gcs_topic:
+        message = tas_mav.Hex(msg.payload)
         tas_mav.gcs_noti_handler(bytearray.fromhex(" ".join(message[i:i + 2] for i in range(0, len(message), 2))))
 
     else:
-        if msg.topic.contains('/oneM2M/req/'):
-            jsonObj = json.loads(message)
+        if '/oneM2M/req/' in msg.topic:
+            jsonObj = json.loads(msg.payload)
 
-            if jsonObj['m2m:rqp'] is None:
+            if not (jsonObj.get('m2m:rqp')):
                 jsonObj['m2m:rqp'] = jsonObj
 
             noti.mqtt_noti_action(msg.topic.split('/'), jsonObj)
@@ -691,7 +689,6 @@ def muv_on_message(client, userdata, msg):
 
     try:
         msg_obj = json.loads(message)
-        print(msg_obj)
         send_to_Mobius(msg.topic, msg_obj, int(random.random() * 10))
 
     except Exception as e:
@@ -714,13 +711,13 @@ def muv_mqtt_connect(broker_ip, port):
             print('muv_mqtt_client connected to {}'.format(broker_ip))
 
         else:
-            thyme.mqtt_client = mqtt.Client(clean_session=True)
-            thyme.mqtt_client.on_connect = muv_on_connect
-            thyme.mqtt_client.on_subscribe = muv_on_subscribe
-            thyme.mqtt_client.on_message = muv_on_message
-            thyme.mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
+            thyme.muv_mqtt_client = mqtt.Client(clean_session=True)
+            thyme.muv_mqtt_client.on_connect = muv_on_connect
+            thyme.muv_mqtt_client.on_subscribe = muv_on_subscribe
+            thyme.muv_mqtt_client.on_message = muv_on_message
+            thyme.muv_mqtt_client.tls_set(certfile='./server-crt.pem', keyfile='./server-key.pem')
             thyme.muv_mqtt_client.connect(broker_ip, port, keepalive=10)
-            thyme.mqtt_client.loop_start()
+            thyme.muv_mqtt_client.loop_start()
             print('muv_mqtt_client connected to {}'.format(broker_ip))
 
 
